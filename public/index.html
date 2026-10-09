@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HIP-4 Desk — Hyperliquid Outcome Markets Liquidity Desk</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <!-- Header -->
+  <header>
+    <div class="logo-area">
+      <div class="logo-tag">
+        <span>⚡ HIP-4 DESK</span>
+        <span class="logo-badge">GÜN 2 MVP</span>
+      </div>
+      <div class="nav-tabs">
+        <button class="tab-btn active" id="tab-deployer-btn" onclick="switchTab('deployer')">📊 Deployer Masası</button>
+        <button class="tab-btn" id="tab-trader-btn" onclick="switchTab('trader')">🛒 Trader Alım-Satım</button>
+      </div>
+    </div>
+
+    <div class="header-controls">
+      <span class="badge badge-safe">🟢 TESTNET (SAFE — ZERO MAINNET ORDERS)</span>
+      <span class="badge badge-deadman" id="deadman-badge">⏳ DEAD-MAN: 30s</span>
+      <button class="tab-btn" style="border: 1px solid var(--border-color); padding: 4px 10px; font-size: 0.75rem;" onclick="sendHeartbeat()">💓 Heartbeat</button>
+      <button class="btn-kill" onclick="triggerEmergencyKill()">🚨 KILL-SWITCH (CANCEL-ALL)</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- VIEW 1: DEPLOYER DASHBOARD -->
+    <section id="view-deployer" class="view-section active">
+      <!-- KPI Overview Grid -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-title">İşlem Hacmi (Simüle)</div>
+          <div class="kpi-value" id="kpi-volume">$43.54</div>
+          <div class="kpi-subtitle">Testnet / Dry-Run Toplamı</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-title">Net YES Envanteri</div>
+          <div class="kpi-value" id="kpi-inventory">+80 YES</div>
+          <div class="kpi-subtitle">Maksimum Tavan: 200 Kontrat</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-title">MM Gerçekleşen PnL</div>
+          <div class="kpi-value" id="kpi-pnl" style="color: var(--accent-green);">+$0.36</div>
+          <div class="kpi-subtitle">Spread Yakalama Getirisi</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-title">Builder Fee Geliri</div>
+          <div class="kpi-value" id="kpi-builder-fee" style="color: #c084fc;">$0.0436</div>
+          <div class="kpi-subtitle">{b, f} Akışından Desk Payı</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-title">Deployer Fee Payı</div>
+          <div class="kpi-value" id="kpi-deployer-fee" style="color: #60a5fa;">$0.0077</div>
+          <div class="kpi-subtitle">Venue Deployer Gelir Payı</div>
+        </div>
+      </div>
+
+      <!-- AI Parameter Advisory Box -->
+      <div class="ai-advisor-box" id="ai-advisor-container">
+        <div class="ai-header">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-size: 1.15rem;">🤖</span>
+            <strong style="font-size: 1rem; color: #fff;">AI Parametre Danışmanı (SADECE ÖNERİ & ONAY)</strong>
+            <span class="ai-tag" id="ai-urgency-tag">URGENCY: MEDIUM</span>
+          </div>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">Emir Yetkisi YOK — Uygulama Deployer Onayına Bağlıdır</span>
+        </div>
+
+        <div class="ai-explanation" id="ai-explanation-text">
+          Market verileri yükleniyor...
+        </div>
+
+        <div class="ai-diff-grid" id="ai-diff-grid">
+          <!-- Populated by JS -->
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="font-size: 0.8rem; color: var(--text-secondary);" id="ai-rules-triggered">
+            Tetiklenen Kurallar: VOLATILITY_ELEVATED, DESERT_MARKET_OPPORTUNITY
+          </div>
+          <button class="btn-ai-apply" id="btn-apply-ai" onclick="applyAiRecommendation()">
+            <span>✓</span> Deployer Onayı ile Parametreleri Uygula
+          </button>
+        </div>
+      </div>
+
+      <!-- Before / After Order Book Comparison -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>⚖️</span>
+            <span>Before vs After Defter Karşılaştırması</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <label for="market-select" style="font-size: 0.85rem; color: var(--text-secondary);">Market Seç:</label>
+            <select id="market-select" class="form-select" style="width: auto;" onchange="onMarketChange()">
+              <option value="11074">BTC > $85,000 (End of Month)</option>
+              <option value="22569">ETH > $3,200 (Nov 2026)</option>
+              <option value="33102">SOL > $220 (Dec 2026)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="book-comparator-grid">
+          <!-- BEFORE Panel -->
+          <div class="book-panel before">
+            <div class="book-panel-header">
+              <strong style="color: var(--accent-red);">🔴 ÖNCE (Before HIP-4 Desk)</strong>
+              <span class="book-status-tag before" id="book-before-status">BOŞ / TERK EDİLMİŞ DEFTER</span>
+            </div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+              Market deploy edilmiş fakat piyasa yapıcı olmadığı için defter boş ya da uçurum spread'li.
+            </p>
+            <table class="book-table">
+              <thead>
+                <tr>
+                  <th>Fiyat (YES)</th>
+                  <th>Boyut</th>
+                  <th>Tutar (USD)</th>
+                </tr>
+              </thead>
+              <tbody id="book-before-body">
+                <tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Defterde emir yok (Deserted)</td></tr>
+              </tbody>
+            </table>
+            <div class="spread-row" id="book-before-spread" style="color: var(--accent-red);">
+              Mevcut Piyasa Spread'i: N/A (Emir Yok)
+            </div>
+          </div>
+
+          <!-- AFTER Panel -->
+          <div class="book-panel after">
+            <div class="book-panel-header">
+              <strong style="color: var(--accent-green);">🟢 SONRA (With HIP-4 Desk Active)</strong>
+              <span class="book-status-tag after" id="book-after-status">İKİ TARAFLI SIKI KOTASYON</span>
+            </div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+              Fair-value (Black-Scholes binary) modeliyle hesaplanmış, dinamik spread'li 2 taraflı kotasyon.
+            </p>
+            <table class="book-table">
+              <thead>
+                <tr>
+                  <th>Fiyat (YES)</th>
+                  <th>Boyut</th>
+                  <th>Tutar (USD)</th>
+                </tr>
+              </thead>
+              <tbody id="book-after-body">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+            <div class="spread-row" id="book-after-spread" style="color: var(--accent-green);">
+              Desk Spread: $0.0300 (Derinlik: ~$65.50)
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mainnet Liquidity Score Benchmark Card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>🌍</span>
+            <span>Mainnet Read-Only Likidite Skoru Benchmarkı</span>
+          </div>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">Canlı Hyperliquid Mainnet Venue Analizi</span>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+          Mainnet'te bugün 3 deployer venue bulunmaktadır. Outcome.xyz teşvikli iken, diğer venue'lar likidite krizindedir:
+        </p>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>VENUE</th>
+              <th>ADI</th>
+              <th>TOPLAM MARKET</th>
+              <th>BOŞ DEFTER %</th>
+              <th>MEDYAN SPREAD</th>
+              <th>MEDYAN DERİNLİK</th>
+              <th>DURUM</th>
+              <th>ANALİZ</th>
+            </tr>
+          </thead>
+          <tbody id="mainnet-score-table-body">
+            <!-- Populated by JS -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Fills & Inventory Ledger -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>📋</span>
+            <span>İşlem Dolumları ve Envanter Defteri</span>
+          </div>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">Simüle Edilmiş & Testnet İşlemleri</span>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>İşlem ID</th>
+              <th>Market</th>
+              <th>Yön</th>
+              <th>Fiyat</th>
+              <th>Boyut</th>
+              <th>Tutar ($)</th>
+              <th>Builder Fee ($)</th>
+              <th>Deployer Payı ($)</th>
+              <th>Zaman</th>
+            </tr>
+          </thead>
+          <tbody id="fills-table-body">
+            <!-- Populated by JS -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- VIEW 2: TRADER ORDER PORTAL -->
+    <section id="view-trader" class="view-section">
+      <div class="notice-banner">
+        <strong>📌 Hyperliquid Builder Code Kuralı & Mimari Notu:</strong><br>
+        Builder ücreti tahsilatı için trader ana cüzdanıyla 1 kez <code>ApproveBuilderFee</code> (EIP-712) imzalar.<br>
+        <strong>Kritik Kural:</strong> Builder cüzdanının Perps hesabında en az <strong>100 USDC</strong> bulunmalıdır. Builder code için 500k HYPE stake <u>gerekmez</u>.
+      </div>
+
+      <div class="form-grid">
+        <!-- Step 1: Approve Builder Fee -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <span>🔐</span>
+              <span>1. Adım: ApproveBuilderFee Onayı</span>
+            </div>
+            <span class="badge badge-safe" id="builder-approval-status">ONAY BEKLENİYOR</span>
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+            Trader ana cüzdanı Desk builder adresine (%0.10 tavan ile) yetki verir.
+          </p>
+
+          <div class="form-group">
+            <label class="form-label">Trader Cüzdan Adresi</label>
+            <input type="text" id="trader-address-input" class="form-input" value="0xUserTrader1111111111111111111111111111111111">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Desk Builder Adresi (b)</label>
+            <input type="text" id="builder-address-display" class="form-input" readonly value="0x999999cf1046e68e36e1aa2e0e07105eddd7d5b7" style="color: var(--text-muted);">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Yetkilendirilen Maksimum Fee (maxFeeRate)</label>
+            <input type="text" id="builder-max-rate" class="form-input" value="0.1%" readonly style="color: var(--text-muted);">
+          </div>
+
+          <button class="btn-primary" onclick="approveBuilderFee()">
+            ✍️ ApproveBuilderFee İmzala (EIP-712 Testnet/Dry-Run)
+          </button>
+
+          <div id="approval-receipt" style="display: none; margin-top: 1rem; font-size: 0.8rem; background: rgba(0,0,0,0.3); padding: 0.75rem; border-radius: 6px; font-family: var(--font-mono);">
+            ✅ Onay kaydedildi! EIP-712 Typed Data hash doğrulandı.
+          </div>
+        </div>
+
+        <!-- Step 2: Order Entry Form -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <span>📈</span>
+              <span>2. Adım: Emir Gönderme Formu</span>
+            </div>
+            <span class="badge" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa;">BUILDER ROUTED</span>
+          </div>
+
+          <form id="order-form" onsubmit="submitTradeOrder(event)">
+            <div class="form-group">
+              <label class="form-label">Market Seç</label>
+              <select id="trade-market-select" class="form-select">
+                <option value="11074">BTC > $85,000 (End of Month) - Spot: $82,250</option>
+                <option value="22569">ETH > $3,200 (Nov 2026) - Spot: $3,105</option>
+                <option value="33102">SOL > $220 (Dec 2026) - Spot: $198</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">İşlem Yönü (Side)</label>
+              <select id="trade-side-select" class="form-select">
+                <option value="buy_yes">YES Al (Call Long)</option>
+                <option value="sell_yes">YES Sat (Call Short)</option>
+                <option value="buy_no">NO Al (Put Long)</option>
+              </select>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div class="form-group">
+                <label class="form-label">Fiyat ($)</label>
+                <input type="number" id="trade-price-input" class="form-input" step="0.001" min="0.001" max="0.999" value="0.515">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Boyut (Kontrat)</label>
+                <input type="number" id="trade-size-input" class="form-input" step="1" min="1" value="30">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Builder Code Alanı { "b": adres, "f": fee }</label>
+              <input type="text" id="builder-code-json" class="form-input" readonly value='{"b": "0x999999cf...", "f": 100}' style="font-family: var(--font-mono); font-size: 0.8rem; color: #c084fc;">
+              <small style="color: var(--text-muted); font-size: 0.75rem;">f = 100 (10 bps = %0.10). Max tavan %1.00.</small>
+            </div>
+
+            <button type="submit" class="btn-primary" style="background: var(--accent-green);">
+              🚀 Emri İlet (Testnet / Dry-Run)
+            </button>
+          </form>
+
+          <div id="trade-receipt-box" class="receipt-card" style="display: none;">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

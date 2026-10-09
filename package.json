@@ -1,0 +1,33 @@
+{
+  "name": "hip4-desk",
+  "version": "0.1.0",
+  "description": "HIP-4 Outcome Markets Liquidity Desk & Market-Making Engine",
+  "license": "MIT",
+  "author": "HIP-4 Desk Team",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "serve": "tsx src/server/index.ts",
+    "desk": "tsx src/server/index.ts",
+    "score:mainnet": "tsx src/scripts/liquidity-score.ts --env=mainnet",
+    "score:testnet": "tsx src/scripts/liquidity-score.ts --env=testnet",
+    "quote:dry-run": "tsx src/scripts/run-quoter.ts --dry-run",
+    "quote:testnet": "tsx src/scripts/run-quoter.ts --env=testnet",
+    "cancel-all": "tsx src/scripts/cancel-all.ts",
+    "demo": "tsx src/scripts/demo-flow.ts",
+    "test": "tsx test/black-scholes.test.ts && tsx test/quoter.test.ts && tsx test/ai-advisor.test.ts && tsx test/deadman.test.ts && tsx test/builder-fee.test.ts && tsx test/inventory.test.ts && tsx test/basket-ppn.test.ts && tsx test/safety.test.ts",
+    "test:ts": "npm test"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "viem": "^2.21.57"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

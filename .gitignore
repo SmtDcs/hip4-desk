@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+
+# Dev artifacts & prompts
+agy-*.json
+agy-*.log
+AGY_PROMPT_*.md
+HIP4-Desk-temel-plan.md
+*.pem
+.idea/
+.vscode/
