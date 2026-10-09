@@ -2,7 +2,7 @@
 
 > **Track:** Hyperliquid Track  
 > **Submission Deadline:** **Oct 12, 2026 23:59 PT** (= **13 Eki 2026 09:59 TSİ**)  
-> **Repository:** [`https://github.com/<YOU>/hip4-desk`](https://github.com/<YOU>/hip4-desk)  
+> **Repository:** [`https://github.com/SmtDcs/hip4-desk`](https://github.com/SmtDcs/hip4-desk)  
 > **Pitch Video (≤2–3 min):** `PITCH_VIDEO_URL=`  
 > **Demo Video (≤3 min):** `DEMO_VIDEO_URL=`  
 
@@ -71,7 +71,7 @@ A turnkey, open-source Liquidity-as-a-Service desk and order router tailored for
 
 ## 📦 Submission Package Checklist
 
-- [ ] **Public GitHub Repository:** `https://github.com/<YOU>/hip4-desk` (MIT — push pending Samet approval)
+- [ ] **Public GitHub Repository:** `https://github.com/SmtDcs/hip4-desk` (MIT — push pending Samet approval)
 - [ ] **Pitch Video (≤2–3 min):** `PITCH_VIDEO_URL=` (placeholder until recorded)
 - [ ] **Demo Video (≤3 min):** `DEMO_VIDEO_URL=` (placeholder until recorded)
 - [x] **English Materials Included:** `SUBMISSION.md`, `README.md` (EN summary), `PITCH.md` (EN script), `DEMO.md` walkthrough.
