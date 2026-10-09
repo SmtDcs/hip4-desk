@@ -71,7 +71,7 @@ A turnkey, open-source Liquidity-as-a-Service desk and order router tailored for
 
 ## 📦 Submission Package Checklist
 
-- [ ] **Public GitHub Repository:** `https://github.com/SmtDcs/hip4-desk` (MIT — push pending Samet approval)
+- [x] **Public GitHub Repository:** `https://github.com/SmtDcs/hip4-desk` (MIT)
 - [ ] **Pitch Video (≤2–3 min):** `PITCH_VIDEO_URL=` (placeholder until recorded)
 - [ ] **Demo Video (≤3 min):** `DEMO_VIDEO_URL=` (placeholder until recorded)
 - [x] **English Materials Included:** `SUBMISSION.md`, `README.md` (EN summary), `PITCH.md` (EN script), `DEMO.md` walkthrough.
