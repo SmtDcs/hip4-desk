@@ -117,4 +117,4 @@ console.log('🧪 Running Dead-Man Switch Tests...\n');
   console.log(`  ✅ Expired Deadline: Fires onExpired callback exactly once and disarms`);
 }
 
-console.log('\n🎉 All Dead-Man Switch tests passed successfully!\n');
+console.log('\nAll Dead-Man Switch tests passed successfully!\n');

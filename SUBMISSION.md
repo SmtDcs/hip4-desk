@@ -1,87 +1,53 @@
-# HIP-4 Desk — Colosseum World's Fair Submission Package
+# HIP-4 Desk — Colosseum Submission
 
-> **Track:** Hyperliquid Track  
-> **Submission Deadline:** **Oct 12, 2026 23:59 PT** (= **13 Eki 2026 09:59 TSİ**)  
-> **Repository:** [`https://github.com/SmtDcs/hip4-desk`](https://github.com/SmtDcs/hip4-desk)  
-> **Pitch Video (≤2–3 min):** `PITCH_VIDEO_URL=`  
-> **Demo Video (≤3 min):** `DEMO_VIDEO_URL=`  
+**Track:** Hyperliquid  
+**Deadline:** Oct 12, 2026 23:59 PT (13 Eki 2026 09:59 TSİ)  
+**Repository:** https://github.com/SmtDcs/hip4-desk  
+**Pitch video (≤2–3 min):** `PITCH_VIDEO_URL=`  
+**Demo video (≤3 min):** `DEMO_VIDEO_URL=`
 
----
+## One-liner
 
-## 🚀 Project One-Liner
+- **TR:** HIP4 Tools ve hip4markets trader'lara HIP-4 satıyor; HIP-4 Desk deployer'lara likidite satıyor — perp mark'tan adil olasılık, risk limitleri, L1 dead-man ve onaylı parametre önerisi.
+- **EN:** Existing tools sell HIP-4 to traders; HIP-4 Desk sells liquidity to deployers — fair binary pricing from HyperCore perp marks, risk limits, L1 dead-man, and deployer-gated advisory.
 
-- **🇹🇷 TR:** *"HIP4 Tools ve hip4markets trader'lara HIP-4'ü satıyor; HIP-4 Desk ise deployer'lara likidite satıyor. Dayanak perp fiyatından türetilen adil olasılıkla, risk limitli, L1 dead-man korumalı ve AI danışmanlı otomatik kotasyon masası."*
-- **🇬🇧 EN:** *"While existing tools sell HIP-4 to traders, HIP-4 Desk sells liquidity to deployers — an automated, risk-managed, AI-advised market-making desk that prices binary outcomes from live HyperCore perp marks to seed tight two-sided books from day one."*
+## User / problem / solution
 
----
+**User:** HIP-4 outcome market deployers.
 
-## 🎯 Target User, Problem & Solution
+**Problem:** Non-incentivized venues (`txyz`, `skew`) show wide median spreads (~0.55–0.89). Outcome markets pay no maker rebates, so books often stay untradable and deployer fees stay near zero.
 
-### Target User
-**HIP-4 Outcome Market Deployers** on Hyperliquid who stake 500k HYPE to create prediction venues and binary contracts, but struggle with barren orderbooks and zero trading volume.
+**Solution:** Open-source liquidity desk that:
+1. Prices YES via Black–Scholes binary \(P(S_T > K) \approx N(d_2)\) from HyperCore marks
+2. Posts two-sided quotes with inventory skew and expiry pullback
+3. Suggests parameters in plain language (no unilateral AI orders)
+4. Uses Hyperliquid `scheduleCancel` + kill-switch
+5. Routes trader flow with builder codes `{b,f}` (10 bps) and deployer fee share
 
-### Problem
-1. **Untradable Books:** Live mainnet reads on non-incentivized venues (`txyz`, `skew`) show **median spreads of ~0.55–0.89** — books can look filled and still be unusable for real trading.
-2. **Zero Maker Rebates:** Unlike perpetual futures, Hyperliquid HIP-4 outcome markets pay **zero maker rebates**, removing organic incentives for generic market-making bots to seed liquidity.
-3. **Ghost Town Venues:** Deployers lock substantial capital to deploy venues, but receive zero volume and zero protocol fees without active liquidity.
+## Hyperliquid track note
 
-### Solution: HIP-4 Desk
-A turnkey, open-source Liquidity-as-a-Service desk and order router tailored for HIP-4:
-- **External Mark Fair-Value:** Calculates true mathematical probability $P(S_T > K) \approx N(d_2)$ via Black-Scholes binary pricing referencing HyperCore perp marks ($S$) and realized volatility ($\sigma$).
-- **Two-Sided Quoting Engine:** Produces active Bid and Ask depth with inventory skewing, min notional enforcement ($10 USDH), and anti-gamma pullback near expiry.
-- **AI Advisory with Deployer Gate:** Rule-based AI analyzes book depth, inventory skew, and volatility regime, suggesting parameter updates in natural language — strictly advisory with zero unconfirmed order authority.
-- **HyperCore L1 Dead-Man Switch:** Integrates Hyperliquid exchange-level `scheduleCancel` heartbeat countdown and single-click emergency kill-switches.
-- **Monetization via Builder Codes:** Trader interface routes orders with `{ b, f }` builder fees (0.10%) and shares venue deployer fees without requiring 500k HYPE stake.
+Built on **HyperCore L1** Info/Exchange APIs (`outcomeMeta`, `l2Book`, `metaAndAssetCtxs`), not HyperEVM-only. Uses native HIP-4 books, `scheduleCancel`, and EIP-712 `ApproveBuilderFee`.
 
----
+## Judging map (short)
 
-## ⚡ Hyperliquid Track Integration Note
+| Criterion | Evidence |
+|-----------|----------|
+| Functionality | 8 test suites, `npm run demo`, `npm run serve`, dry-run quoter |
+| Impact | Targets deployer-side illiquidity on HIP-4 |
+| Novelty | Supply-side desk + mark-anchored binary pricing |
+| UX | Before/after books, fills/PnL, one-click parameter apply |
+| Open source | MIT, no Outcome BUSL SDK |
+| Business | Spread capture + deployer fee share + builder fees |
 
-**HIP-4 Desk is natively integrated with HyperCore L1, NOT HyperEVM-only.**
-- Integrates directly with Hyperliquid HyperCore L1 Info and Exchange APIs (`outcomeMeta`, `l2Book`, `metaAndAssetCtxs`).
-- Leverages native HIP-4 outcome market orderbooks and settlement mechanics.
-- Uses Hyperliquid native L1 exchange actions: `scheduleCancel` for dead-man switch protection.
-- Implements Hyperliquid EIP-712 `ApproveBuilderFee` signed typed data and `{ b: builder, f: fee }` builder codes on HyperCore.
+## Package checklist
 
----
+- [x] Public GitHub: https://github.com/SmtDcs/hip4-desk (MIT)
+- [ ] Pitch video ≤2–3 min — `PITCH_VIDEO_URL=`
+- [ ] Demo video ≤3 min — `DEMO_VIDEO_URL=`
+- [x] English materials: this file, README summary, PITCH/DEMO notes
+- [x] Tests green (`npm test`), clean build (`npm run build`)
+- [x] MIT only; no BUSL deps
 
-## 🏆 Colosseum Judging Criteria Mapping
+## Safety
 
-- **Functionality (Green & Battle-Tested):**
-  - 8 test suites (41 unit tests) covering pricing, quoting, AI advisory, risk bounds, dead-man switch, builder fee math, inventory, PPN, and safety locks.
-  - Interactive terminal demo (`npm run demo`), web deployer dashboard & trader portal (`npm run serve`), and dry-run CLI engine (`npm run quote:dry-run`).
-- **Potential Impact (Ecosystem Liquidity Catalyst):**
-  - Directly tackles the single largest roadblock in HIP-4 adoption: illiquidity in non-subsidized outcome venues. Unlocks viable trading volume and fee generation for all market deployers.
-- **Novelty (Supply-Side Liquidity-as-a-Service):**
-  - First project targeting the *deployer (supply)* side instead of retail traders.
-  - Replaces arbitrary mid-price quoting with Black-Scholes binary math anchored to live HyperCore perp marks.
-- **User Experience (Deployer Cockpit & Safe UX):**
-  - Minimalist, high-performance UI showing Before/After orderbooks, fill logs, inventory PnL, and live mainnet venue benchmark scores.
-  - One-click deployer parameter confirmation with clear natural-language rationale for every adjustment.
-- **Open-Source & Composability (%100 MIT, Zero BUSL):**
-  - **Zero dependency on Outcome.xyz BUSL-1.1 SDK.**
-  - Pure MIT-licensed codebase built on public Hyperliquid APIs, easily extensible by any developer in the Hyperliquid ecosystem.
-- **Business Plan & Unit Economics (Sustainable MM Model):**
-  - Multi-stream revenue model:
-    1. Bid-Ask spread capture from market making.
-    2. Proportional venue fee share via protocol `deployerFeeScale`.
-    3. Recurring 10 bps builder fees via trader-routed builder codes (`{ b, f }`).
-
----
-
-## 📦 Submission Package Checklist
-
-- [x] **Public GitHub Repository:** `https://github.com/SmtDcs/hip4-desk` (MIT)
-- [ ] **Pitch Video (≤2–3 min):** `PITCH_VIDEO_URL=` (placeholder until recorded)
-- [ ] **Demo Video (≤3 min):** `DEMO_VIDEO_URL=` (placeholder until recorded)
-- [x] **English Materials Included:** `SUBMISSION.md`, `README.md` (EN summary), `PITCH.md` (EN script), `DEMO.md` walkthrough.
-- [x] **Verified Green Test Suite:** 8 test suites passing (`npm test`), clean build (`npm run build`).
-- [x] **Zero Restrictive Licenses:** 100% MIT, zero BUSL dependencies.
-
----
-
-## 🛡️ Critical Safety Notice
-
-- **Mainnet Order Placement is STRICTLY BLOCKED:** All real mainnet order placement operations are hard-blocked at the code level via `assertSafeExecution`.
-- **Mainnet Operations are Read-Only:** Scripts like `score:mainnet` only perform read-only market discovery and orderbook benchmarking.
-- **Execution Environment:** All quoting execution, trades, and demo flows run strictly in dry-run mode or against Hyperliquid Testnet.
+Mainnet orders are blocked in code. `score:mainnet` is read-only. Quoting/demo run dry-run or testnet.

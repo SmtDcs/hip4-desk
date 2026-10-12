@@ -313,7 +313,7 @@ async function runEndToEndDemo() {
   // CLOSING & SUMMARY
   // -------------------------------------------------------------
   divider('=');
-  console.log(C.bold + C.green + `  🎉 END-TO-END DEMO EXECUTION COMPLETE!` + C.reset);
+  console.log(C.bold + C.green + `  END-TO-END DEMO EXECUTION COMPLETE!` + C.reset);
   divider('=');
   console.log(`\n${C.bold}Summary Value Proposition & Business Model:${C.reset}`);
   console.log(`1. ${C.cyan}Deployer Liquidity-as-a-Service:${C.reset} Bridges the gap on illiquid venues from day 1.`);

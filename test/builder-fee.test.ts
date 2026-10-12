@@ -152,4 +152,4 @@ const builderManager = new BuilderFeeManager(testnetConfig, DEFAULT_DESK_BUILDER
   console.log(`  ✅ Critical Safety Gate: Execution strictly blocked on mainnet`);
 }
 
-console.log('\n🎉 All Builder Fee tests passed successfully!\n');
+console.log('\nAll Builder Fee tests passed successfully!\n');

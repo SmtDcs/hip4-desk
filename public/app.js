@@ -373,7 +373,7 @@ async function submitTradeOrder(event) {
       receiptBox.style.display = 'block';
       receiptBox.innerHTML = `
         <div style="color: var(--accent-green); font-weight: 700; margin-bottom: 0.5rem;">
-          🎉 İşlem Testnet/Dry-Run Üzerinde Gerçekleşti!
+          İşlem Testnet/Dry-Run Üzerinde Gerçekleşti!
         </div>
         <div>• Fill ID: ${data.fill.fillId}</div>
         <div>• Tutar: $${data.fill.notional.toFixed(2)} (${data.fill.size} kontrat @ $${data.fill.price})</div>

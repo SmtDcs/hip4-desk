@@ -81,4 +81,4 @@ const tracker = new InventoryTracker();
   console.log(`  ✅ Portfolio State: Builder Fee Revenue $${portfolio.totalBuilderFeeRevenue.toFixed(4)} | Fills: ${portfolio.fills.length}`);
 }
 
-console.log('\n🎉 All Inventory & PnL Accounting tests passed successfully!\n');
+console.log('\nAll Inventory & PnL Accounting tests passed successfully!\n');

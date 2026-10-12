@@ -149,4 +149,4 @@ console.log('🧪 Running Safety & Hardening Tests...\n');
   console.log('  ✅ Desert Book Advisory Safety: Advisory returns suggestion with zero execution authority');
 }
 
-console.log('\n🎉 All Safety & Hardening tests passed successfully!\n');
+console.log('\nAll Safety & Hardening tests passed successfully!\n');

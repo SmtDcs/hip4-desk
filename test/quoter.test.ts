@@ -174,4 +174,4 @@ const sampleMarket: ParsedPriceBinary = {
   console.log(`  ✅ Exact Cap Boundary: 99 active, exactly 100 / -100 safely pulled`);
 }
 
-console.log('\n🎉 All Quoting Engine & Risk Limits tests passed successfully!\n');
+console.log('\nAll Quoting Engine & Risk Limits tests passed successfully!\n');

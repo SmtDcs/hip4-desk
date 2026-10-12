@@ -122,4 +122,4 @@ console.log('🧪 Running Principal-Protected Note (PPN) & Basket Tests...\n');
   console.log('  ✅ Validation Guards: Correctly rejects invalid parameters');
 }
 
-console.log('\n🎉 All Principal-Protected Note & Basket tests passed successfully!\n');
+console.log('\nAll Principal-Protected Note & Basket tests passed successfully!\n');

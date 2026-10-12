@@ -107,4 +107,4 @@ console.log('🧪 Running Black-Scholes Binary Tests...\n');
   console.log('  ✅ Edge cases: vol=0 clamped safely, non-positive spot/strike rejected with throw');
 }
 
-console.log('\n🎉 All Black-Scholes tests passed successfully!\n');
+console.log('\nAll Black-Scholes tests passed successfully!\n');

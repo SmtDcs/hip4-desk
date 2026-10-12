@@ -149,4 +149,4 @@ function highRecTriggered(rec: any, rule: string): boolean {
   return rec.rulesTriggered.includes(rule);
 }
 
-console.log('\n🎉 All AI Parameter Advisor tests passed successfully!\n');
+console.log('\nAll AI Parameter Advisor tests passed successfully!\n');
