@@ -46,7 +46,7 @@ const sampleMarket: ParsedPriceBinary = {
 
   assert(highRecTriggered(highVolRec, 'VOLATILITY_ELEVATED'), 'Should trigger VOLATILITY_ELEVATED');
   assert(highVolRec.suggestedParams.baseSpread > baseParams.baseSpread, 'Suggested spread must be wider under high vol');
-  assert(highVolRec.explanation.includes('adverse selection') || highVolRec.explanation.includes('volatilitesi yüksek'));
+  assert(highVolRec.explanation.includes('sigma = 95.0%') || highVolRec.explanation.toLowerCase().includes('volatility'));
   assert.strictEqual(highVolRec.approved, undefined, 'Must not be approved by default');
 
   console.log(`  ✅ High Volatility: σ = 95% -> Widened spread ${baseParams.baseSpread} to ${highVolRec.suggestedParams.baseSpread}`);

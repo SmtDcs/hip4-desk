@@ -176,7 +176,9 @@ export class DeadManSwitchManager {
   }
 
   /**
-   * Forces immediate emergency kill-switch
+   * Forces immediate emergency kill-switch.
+   * Note: this stops the local quoting loop and fires the handler. Nothing is
+   * sent to Hyperliquid — the L1 cancel action is not wired up in this build.
    */
   async triggerEmergencyKillSwitch(): Promise<{ success: boolean; message: string }> {
     this.disarm();
@@ -185,7 +187,7 @@ export class DeadManSwitchManager {
     }
     return {
       success: true,
-      message: 'Emergency Kill-Switch triggered. All quoting halted and cancellation order dispatched.',
+      message: 'Quoting loop stopped and local state cleared. No cancel action was sent to Hyperliquid.',
     };
   }
 }

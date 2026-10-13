@@ -3,7 +3,7 @@
  */
 
 import assert from 'node:assert';
-import { BuilderFeeManager, DEFAULT_DESK_BUILDER_ADDRESS } from '../src/trading/builder-fee.js';
+import { BuilderFeeManager, DEFAULT_DESK_BUILDER_ADDRESS, HYPERLIQUID_SIGNATURE_CHAIN_IDS, BASE_OUTCOME_FEE_RATE } from '../src/trading/builder-fee.js';
 import { loadConfig } from '../src/config.js';
 
 console.log('🧪 Running Builder Fee & Trade Execution Tests...\n');
@@ -56,7 +56,8 @@ const builderManager = new BuilderFeeManager(testnetConfig, DEFAULT_DESK_BUILDER
   const typedData = builderManager.createApproveBuilderFeeTypedData(trader, '0.1%', 12345);
 
   assert.strictEqual(typedData.domain.name, 'HyperliquidSignTransaction');
-  assert.strictEqual(typedData.domain.chainId, 1337);
+  assert.strictEqual(typedData.domain.chainId, HYPERLIQUID_SIGNATURE_CHAIN_IDS.testnet);
+  assert.strictEqual(typedData.domain.verifyingContract, '0x0000000000000000000000000000000000000000');
   assert.strictEqual(typedData.primaryType, 'HyperliquidTransaction:ApproveBuilderFee');
   assert.strictEqual(typedData.message.builder, DEFAULT_DESK_BUILDER_ADDRESS);
   assert.strictEqual(typedData.message.maxFeeRate, '0.1%');
@@ -87,17 +88,31 @@ const builderManager = new BuilderFeeManager(testnetConfig, DEFAULT_DESK_BUILDER
 }
 
 // 4. Fee breakdown calculation test
+// HIP-4 rule: the user pays base x (scale + max(scale, 1)); the deployer takes
+// the scale component and the protocol takes max(scale, 1).
 {
   const notional = 100.0; // $100 trade
-  const feeBreakdown = builderManager.calculateFeeBreakdown(notional, 100, 1.0); // 10 bps builder fee, 1.0 scale
+  const base = notional * BASE_OUTCOME_FEE_RATE;
 
-  assert.strictEqual(feeBreakdown.grossNotionalUsd, 100.0);
-  assert.strictEqual(feeBreakdown.builderFeeUsd, 0.10); // 0.10% of 100 = $0.10
-  assert.strictEqual(feeBreakdown.takerFeeUsd, 0.035); // 0.035% of 100 = $0.035
-  assert(feeBreakdown.deployerFeeShareUsd > 0);
-  assert(feeBreakdown.netTraderTotalUsd > 100.0);
+  const scaleOne = builderManager.calculateFeeBreakdown(notional, 100, 1.0); // 10 bps builder fee, scale 1
+  assert.strictEqual(scaleOne.grossNotionalUsd, 100.0);
+  assert.strictEqual(scaleOne.builderFeeUsd, 0.10); // 0.10% of 100 = $0.10
+  assert.strictEqual(scaleOne.takerFeeUsd, 0.035); // base rate before scale
+  assert.strictEqual(scaleOne.deployerFeeShareUsd, 0.035); // base x scale(1)
+  assert.strictEqual(scaleOne.protocolFeeUsd, 0.035); // base x max(scale,1)
+  assert.strictEqual(scaleOne.totalUserFeeUsd, 0.07); // base x (1 + 1)
+  assert(scaleOne.netTraderTotalUsd > 100.0);
 
-  console.log(`  ✅ Fee Calculation: $100 order -> Builder Fee $${feeBreakdown.builderFeeUsd} (0.10%), Taker Fee $${feeBreakdown.takerFeeUsd}`);
+  const scaleThree = builderManager.calculateFeeBreakdown(notional, 100, 3);
+  assert.strictEqual(scaleThree.deployerFeeShareUsd, Number((base * 3).toFixed(4)));
+  assert.strictEqual(scaleThree.totalUserFeeUsd, Number((base * 6).toFixed(4)));
+
+  // scale 0: the user still pays the base rate, the deployer receives nothing
+  const scaleZero = builderManager.calculateFeeBreakdown(notional, 100, 0);
+  assert.strictEqual(scaleZero.deployerFeeShareUsd, 0);
+  assert.strictEqual(scaleZero.totalUserFeeUsd, scaleZero.takerFeeUsd);
+
+  console.log(`  ✅ Fee Calculation: $100 order -> Builder Fee $${scaleOne.builderFeeUsd} (0.10%), Base Fee $${scaleOne.takerFeeUsd}, deployer share scales with deployerFeeScale`);
 }
 
 // 5. Testnet Order Simulation test

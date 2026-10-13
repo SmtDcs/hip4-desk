@@ -18,13 +18,35 @@ import { BuilderCodePayload, ApproveBuilderFeePayload, TradeFill, TradeSide } fr
 export const DEFAULT_DESK_BUILDER_ADDRESS = '0x999999cf1046e68e36e1aa2e0e07105eddd7d5b7';
 export const DEFAULT_BUILDER_FEE_TENTHS = 100; // 10 bps = 0.10%
 
+/**
+ * EIP-712 signing chain per Hyperliquid docs: 42161 (Arbitrum) on mainnet,
+ * 421614 (Arbitrum Sepolia) on testnet. The chain id is part of the domain
+ * separator, so a wrong value recovers a different signer and the exchange
+ * rejects the action.
+ */
+export const HYPERLIQUID_SIGNATURE_CHAIN_IDS = {
+  mainnet: 42161,
+  testnet: 421614,
+} as const;
+
+/**
+ * Base outcome trading fee rate used for modelling only.
+ * Hyperliquid's HIP-4 docs state outcome markets currently charge no trading
+ * fee during initial testing, so this stands in for the rate once it applies.
+ */
+export const BASE_OUTCOME_FEE_RATE = 0.00035; // 3.5 bps
+
 export interface FeeBreakdown {
   grossNotionalUsd: number;
-  takerFeeUsd: number;         // Base taker protocol fee
+  takerFeeUsd: number;         // Base protocol rate, before deployerFeeScale
+  protocolFeeUsd: number;      // Base rate x max(scale, 1) — the protocol's share
   builderFeeUsd: number;       // Fee routed to Desk via builder code
-  deployerFeeShareUsd: number; // Deployer revenue share from protocol scale
-  netTraderTotalUsd: number;   // Total charged to trader
+  deployerFeeShareUsd: number; // Base rate x scale — the deployer's share
+  deployerFeeScale: number;    // Outcome's deployerFeeScale from outcomeMeta
+  totalUserFeeUsd: number;     // Base rate x (scale + max(scale, 1))
+  netTraderTotalUsd: number;   // Notional plus builder fee plus total user fee
   effectiveFeeRatePct: number;
+  baseRateAssumption: number;  // The rate the model assumed, see BASE_OUTCOME_FEE_RATE
 }
 
 export class BuilderFeeManager {
@@ -50,11 +72,14 @@ export class BuilderFeeManager {
     nonce: number = Date.now()
   ) {
     const chainName = this.config.isMainnet ? 'Mainnet' : 'Testnet';
+    const chainId = this.config.isMainnet
+      ? HYPERLIQUID_SIGNATURE_CHAIN_IDS.mainnet
+      : HYPERLIQUID_SIGNATURE_CHAIN_IDS.testnet;
 
     const domain = {
       name: 'HyperliquidSignTransaction',
       version: '1',
-      chainId: 1337,
+      chainId,
       verifyingContract: '0x0000000000000000000000000000000000000000' as const,
     };
 
@@ -134,7 +159,12 @@ export class BuilderFeeManager {
   }
 
   /**
-   * Computes the fee split for a trade with builder fee attached
+   * Computes the fee split for a trade with builder fee attached.
+   *
+   * Per HIP-4 deployer actions, a user trading an outcome pays the base outcome
+   * fee rate times `scale + max(scale, 1)`: the deployer receives the `scale`
+   * component and the protocol takes max(scale, 1). With scale 0 the user pays
+   * the base rate and the deployer receives nothing.
    */
   calculateFeeBreakdown(
     notionalUsd: number,
@@ -145,23 +175,27 @@ export class BuilderFeeManager {
     const builderFeeRate = builderFeeTenths * 0.00001; // e.g. 100 -> 0.001 (0.10%)
     const builderFeeUsd = Number((notionalUsd * builderFeeRate).toFixed(4));
 
-    // Base protocol taker fee approx 0.035% (3.5 bps)
-    const baseTakerRate = 0.00035;
-    const takerFeeUsd = Number((notionalUsd * baseTakerRate).toFixed(4));
+    const safeScale = Math.max(0, deployerFeeScale);
+    const baseFeeUsd = notionalUsd * BASE_OUTCOME_FEE_RATE;
+    const takerFeeUsd = Number(baseFeeUsd.toFixed(4));
+    const deployerFeeShareUsd = Number((baseFeeUsd * safeScale).toFixed(4));
+    const protocolFeeUsd = Number((baseFeeUsd * Math.max(safeScale, 1)).toFixed(4));
+    const totalUserFeeUsd = Number((deployerFeeShareUsd + protocolFeeUsd).toFixed(4));
 
-    // Deployer fee share: deployerFeeScale portion of the base fee
-    const deployerFeeShareUsd = Number((takerFeeUsd * (deployerFeeScale / (1 + deployerFeeScale))).toFixed(4));
-
-    const netTraderTotalUsd = Number((notionalUsd + takerFeeUsd + builderFeeUsd).toFixed(4));
-    const effectiveFeeRatePct = Number((((takerFeeUsd + builderFeeUsd) / notionalUsd) * 100).toFixed(4));
+    const netTraderTotalUsd = Number((notionalUsd + builderFeeUsd + totalUserFeeUsd).toFixed(4));
+    const effectiveFeeRatePct = Number((((totalUserFeeUsd + builderFeeUsd) / notionalUsd) * 100).toFixed(4));
 
     return {
       grossNotionalUsd: notionalUsd,
       takerFeeUsd,
+      protocolFeeUsd,
       builderFeeUsd,
       deployerFeeShareUsd,
+      deployerFeeScale: safeScale,
+      totalUserFeeUsd,
       netTraderTotalUsd,
       effectiveFeeRatePct,
+      baseRateAssumption: BASE_OUTCOME_FEE_RATE,
     };
   }
 

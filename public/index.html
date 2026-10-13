@@ -1,332 +1,340 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HIP-4 Desk — Hyperliquid Outcome Markets Liquidity Desk</title>
+  <title>HIP-4 Desk — Liquidity desk for Hyperliquid outcome markets</title>
+  <meta name="description" content="HIP-4 Desk quotes two-sided prices on Hyperliquid HIP-4 outcome markets from HyperCore perp marks, with inventory limits, a deployer approval gate, and an L1 dead-man switch.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <!-- Header -->
-  <header>
-    <div class="logo-area">
-      <div class="logo-tag">
-        <span>⚡ HIP-4 DESK</span>
-        <span class="logo-badge">GÜN 2 MVP</span>
-      </div>
-      <div class="nav-tabs">
-        <button class="tab-btn active" id="tab-deployer-btn" onclick="switchTab('deployer')">📊 Deployer Masası</button>
-        <button class="tab-btn" id="tab-trader-btn" onclick="switchTab('trader')">🛒 Trader Alım-Satım</button>
-      </div>
-    </div>
+  <a class="skip-link" href="#main">Skip to content</a>
 
-    <div class="header-controls">
-      <span class="badge badge-safe">🟢 TESTNET (SAFE — ZERO MAINNET ORDERS)</span>
-      <span class="badge badge-deadman" id="deadman-badge">⏳ DEAD-MAN: 30s</span>
-      <button class="tab-btn" style="border: 1px solid var(--border-color); padding: 4px 10px; font-size: 0.75rem;" onclick="sendHeartbeat()">💓 Heartbeat</button>
-      <button class="btn-kill" onclick="triggerEmergencyKill()">🚨 KILL-SWITCH (CANCEL-ALL)</button>
+  <header class="masthead">
+    <div class="shell masthead__inner">
+      <div class="brand">
+        <span class="brand__mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6">
+            <path d="M3 20V9M8 20V4M13 20v-7M18 20V7M21 20H3"/>
+          </svg>
+        </span>
+        <span class="brand__text">
+          <strong>HIP-4 Desk</strong>
+          <span>Liquidity desk for outcome markets</span>
+        </span>
+      </div>
+
+      <nav class="tabs" aria-label="Views">
+        <button class="tab is-active" id="tab-deployer-btn" type="button" onclick="switchTab('deployer')" aria-controls="view-deployer" aria-selected="true" role="tab">
+          Deployer desk
+        </button>
+        <button class="tab" id="tab-trader-btn" type="button" onclick="switchTab('trader')" aria-controls="view-trader" aria-selected="false" role="tab">
+          Trader routing
+        </button>
+      </nav>
+
+      <div class="masthead__status">
+        <span class="plate plate--live" title="This build never sends orders to a live network.">Testnet · dry-run</span>
+        <span class="plate plate--info" id="deadman-badge" role="status">Dead-man —</span>
+        <button class="btn btn--ghost" type="button" onclick="sendHeartbeat()">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12h4l2.5-6 3.5 12 3-8 2 2h5"/></svg>
+          Heartbeat
+        </button>
+        <button class="btn btn--danger" type="button" onclick="triggerEmergencyKill()">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3v10M12 17h.01M10.3 3.9 2.5 17.4A1.6 1.6 0 0 0 3.9 20h16.2a1.6 1.6 0 0 0 1.4-2.6L13.7 3.9a1.6 1.6 0 0 0-2.8 0Z"/></svg>
+          Cancel all orders
+        </button>
+      </div>
     </div>
   </header>
 
-  <main>
-    <!-- VIEW 1: DEPLOYER DASHBOARD -->
-    <section id="view-deployer" class="view-section active">
-      <!-- KPI Overview Grid -->
-      <div class="kpi-grid">
-        <div class="kpi-card">
-          <div class="kpi-title">İşlem Hacmi (Simüle)</div>
-          <div class="kpi-value" id="kpi-volume">$43.54</div>
-          <div class="kpi-subtitle">Testnet / Dry-Run Toplamı</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-title">Net YES Envanteri</div>
-          <div class="kpi-value" id="kpi-inventory">+80 YES</div>
-          <div class="kpi-subtitle">Maksimum Tavan: 200 Kontrat</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-title">MM Gerçekleşen PnL</div>
-          <div class="kpi-value" id="kpi-pnl" style="color: var(--accent-green);">+$0.36</div>
-          <div class="kpi-subtitle">Spread Yakalama Getirisi</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-title">Builder Fee Geliri</div>
-          <div class="kpi-value" id="kpi-builder-fee" style="color: #c084fc;">$0.0436</div>
-          <div class="kpi-subtitle">{b, f} Akışından Desk Payı</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-title">Deployer Fee Payı</div>
-          <div class="kpi-value" id="kpi-deployer-fee" style="color: #60a5fa;">$0.0077</div>
-          <div class="kpi-subtitle">Venue Deployer Gelir Payı</div>
-        </div>
-      </div>
+  <main id="main">
+    <!-- ============================= DEPLOYER DESK ============================= -->
+    <section id="view-deployer" class="view is-active" role="tabpanel" aria-labelledby="tab-deployer-btn">
 
-      <!-- AI Parameter Advisory Box -->
-      <div class="ai-advisor-box" id="ai-advisor-container">
-        <div class="ai-header">
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <span style="font-size: 1.15rem;">🤖</span>
-            <strong style="font-size: 1rem; color: #fff;">AI Parametre Danışmanı (SADECE ÖNERİ & ONAY)</strong>
-            <span class="ai-tag" id="ai-urgency-tag">URGENCY: MEDIUM</span>
-          </div>
-          <span style="font-size: 0.8rem; color: var(--text-muted);">Emir Yetkisi YOK — Uygulama Deployer Onayına Bağlıdır</span>
+      <div class="shell">
+        <div class="strip">
+          <p class="strip__lead">
+            Non-incentivized HIP-4 venues quote wide or not at all. The desk prices YES from the
+            HyperCore perp mark, posts both sides, and stops quoting when inventory or expiry says so.
+          </p>
+          <p class="strip__meta">
+            Nothing here is signed or sent. Market data is read-only and the books are illustrative.
+          </p>
         </div>
 
-        <div class="ai-explanation" id="ai-explanation-text">
-          Market verileri yükleniyor...
-        </div>
+        <!-- Ledger summary -->
+        <section class="block" aria-labelledby="ledger-title">
+          <header class="block__head">
+            <h2 class="block__title" id="ledger-title">Desk ledger</h2>
+            <p class="block__note">Example rows, seeded in-process.</p>
+          </header>
 
-        <div class="ai-diff-grid" id="ai-diff-grid">
-          <!-- Populated by JS -->
-        </div>
-
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <div style="font-size: 0.8rem; color: var(--text-secondary);" id="ai-rules-triggered">
-            Tetiklenen Kurallar: VOLATILITY_ELEVATED, DESERT_MARKET_OPPORTUNITY
-          </div>
-          <button class="btn-ai-apply" id="btn-apply-ai" onclick="applyAiRecommendation()">
-            <span>✓</span> Deployer Onayı ile Parametreleri Uygula
-          </button>
-        </div>
-      </div>
-
-      <!-- Before / After Order Book Comparison -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">
-            <span>⚖️</span>
-            <span>Before vs After Defter Karşılaştırması</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <label for="market-select" style="font-size: 0.85rem; color: var(--text-secondary);">Market Seç:</label>
-            <select id="market-select" class="form-select" style="width: auto;" onchange="onMarketChange()">
-              <option value="11074">BTC > $85,000 (End of Month)</option>
-              <option value="22569">ETH > $3,200 (Nov 2026)</option>
-              <option value="33102">SOL > $220 (Dec 2026)</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="book-comparator-grid">
-          <!-- BEFORE Panel -->
-          <div class="book-panel before">
-            <div class="book-panel-header">
-              <strong style="color: var(--accent-red);">🔴 ÖNCE (Before HIP-4 Desk)</strong>
-              <span class="book-status-tag before" id="book-before-status">BOŞ / TERK EDİLMİŞ DEFTER</span>
+          <dl class="ledger">
+            <div class="ledger__cell">
+              <dt>Gross notional</dt>
+              <dd id="kpi-volume">$0.00</dd>
+              <p>Simulated fills this session</p>
             </div>
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
-              Market deploy edilmiş fakat piyasa yapıcı olmadığı için defter boş ya da uçurum spread'li.
-            </p>
-            <table class="book-table">
+            <div class="ledger__cell">
+              <dt>Net YES inventory</dt>
+              <dd id="kpi-inventory">0 YES</dd>
+              <p>Cap 200 contracts</p>
+            </div>
+            <div class="ledger__cell">
+              <dt>Realized spread PnL</dt>
+              <dd id="kpi-pnl">$0.00</dd>
+              <p>Modelled from round trips</p>
+            </div>
+            <div class="ledger__cell">
+              <dt>Builder fee revenue</dt>
+              <dd id="kpi-builder-fee">$0.0000</dd>
+              <p>0.10% on routed flow</p>
+            </div>
+            <div class="ledger__cell">
+              <dt>Deployer fee share</dt>
+              <dd id="kpi-deployer-fee">$0.0000</dd>
+              <p>From <code>deployerFeeScale</code></p>
+            </div>
+          </dl>
+
+          <p class="footnote">
+            Outcome markets charge no trading fee today, so the deployer share is forward-looking at an
+            assumed 3.5&nbsp;bps base rate.
+          </p>
+        </section>
+
+        <!-- Advisory -->
+        <section class="block block--split" aria-labelledby="advisory-title">
+          <header class="block__head">
+            <h2 class="block__title" id="advisory-title">Parameter advisory</h2>
+            <p class="block__note">Rule-based. It proposes numbers; the deployer applies them.</p>
+          </header>
+
+          <div class="advisory">
+            <div class="advisory__head">
+              <span class="plate" id="ai-urgency-tag">Urgency —</span>
+              <span class="advisory__rules" id="ai-rules-triggered">Rules —</span>
+            </div>
+            <p class="advisory__body" id="ai-explanation-text">Reading market conditions…</p>
+            <div class="diff" id="ai-diff-grid"><!-- populated by app.js --></div>
+            <div class="advisory__foot">
+              <p class="advisory__gate">Order placement is not wired up in this build.</p>
+              <button class="btn btn--primary" id="btn-apply-ai" type="button" onclick="applyAiRecommendation()">
+                Apply as deployer
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- The ladder -->
+        <section class="block" aria-labelledby="ladder-title">
+          <header class="block__head block__head--row">
+            <div>
+              <h2 class="block__title" id="ladder-title">The book, before and after</h2>
+              <p class="block__note">Same market, both states: day one on the left, the desk quoting on the right.</p>
+            </div>
+            <div class="field">
+              <label class="field__label" for="market-select">Market</label>
+              <select id="market-select" class="select" onchange="onMarketChange()">
+                <option value="11074">BTC &gt; $85,000 (end of month)</option>
+                <option value="22569">ETH &gt; $3,200 (Nov 2026)</option>
+                <option value="33102">SOL &gt; $220 (Dec 2026)</option>
+              </select>
+            </div>
+          </header>
+
+          <div class="ladders">
+            <div class="ladder ladder--before">
+              <div class="ladder__head">
+                <h3>Before</h3>
+                <span class="plate plate--warn" id="book-before-status">Empty</span>
+              </div>
+              <div class="ladder__cols" aria-hidden="true">
+                <span>Size</span><span>Price</span><span>Size</span>
+              </div>
+              <div class="ladder__rows" id="book-before-body"></div>
+              <p class="ladder__foot" id="book-before-spread">—</p>
+            </div>
+
+            <div class="ladder ladder--after">
+              <div class="ladder__head">
+                <h3>After</h3>
+                <span class="plate plate--live" id="book-after-status">Two-sided</span>
+              </div>
+              <div class="ladder__cols" aria-hidden="true">
+                <span>Bid size</span><span>Price</span><span>Ask size</span>
+              </div>
+              <div class="ladder__rows" id="book-after-body"></div>
+              <p class="ladder__foot" id="book-after-spread">—</p>
+            </div>
+          </div>
+
+          <p class="footnote">
+            Illustrative books. Live engine output: <code>npm run quote:dry-run</code>.
+          </p>
+        </section>
+
+        <!-- Mainnet benchmark -->
+        <section class="block" aria-labelledby="bench-title">
+          <header class="block__head block__head--row">
+            <div>
+              <h2 class="block__title" id="bench-title">Where the liquidity is missing</h2>
+              <p class="block__note">
+                Mainnet, read-only. This is a saved 9&nbsp;Oct&nbsp;2026 sample, not a live pull — rerun
+                <code>npm run score:mainnet</code> for current spreads.
+              </p>
+            </div>
+          </header>
+
+          <div class="table-wrap">
+            <table class="table">
+              <caption class="sr-only">Venue liquidity snapshot for Hyperliquid HIP-4 outcome markets</caption>
               <thead>
                 <tr>
-                  <th>Fiyat (YES)</th>
-                  <th>Boyut</th>
-                  <th>Tutar (USD)</th>
+                  <th scope="col">Venue</th>
+                  <th scope="col">Name</th>
+                  <th scope="col" class="num">Markets</th>
+                  <th scope="col" class="num">Empty</th>
+                  <th scope="col" class="num">Median spread</th>
+                  <th scope="col" class="num">Median depth</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Read</th>
                 </tr>
               </thead>
-              <tbody id="book-before-body">
-                <tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Defterde emir yok (Deserted)</td></tr>
-              </tbody>
+              <tbody id="mainnet-score-table-body"></tbody>
             </table>
-            <div class="spread-row" id="book-before-spread" style="color: var(--accent-red);">
-              Mevcut Piyasa Spread'i: N/A (Emir Yok)
-            </div>
           </div>
+        </section>
 
-          <!-- AFTER Panel -->
-          <div class="book-panel after">
-            <div class="book-panel-header">
-              <strong style="color: var(--accent-green);">🟢 SONRA (With HIP-4 Desk Active)</strong>
-              <span class="book-status-tag after" id="book-after-status">İKİ TARAFLI SIKI KOTASYON</span>
-            </div>
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
-              Fair-value (Black-Scholes binary) modeliyle hesaplanmış, dinamik spread'li 2 taraflı kotasyon.
-            </p>
-            <table class="book-table">
+        <!-- Fills -->
+        <section class="block" aria-labelledby="fills-title">
+          <header class="block__head">
+            <h2 class="block__title" id="fills-title">Fills</h2>
+            <p class="block__note">Seeded examples plus anything sent from the trader tab.</p>
+          </header>
+
+          <div class="table-wrap">
+            <table class="table">
+              <caption class="sr-only">Simulated fills with builder and deployer fee split</caption>
               <thead>
                 <tr>
-                  <th>Fiyat (YES)</th>
-                  <th>Boyut</th>
-                  <th>Tutar (USD)</th>
+                  <th scope="col">Fill</th>
+                  <th scope="col">Market</th>
+                  <th scope="col">Side</th>
+                  <th scope="col" class="num">Price</th>
+                  <th scope="col" class="num">Size</th>
+                  <th scope="col" class="num">Notional</th>
+                  <th scope="col" class="num">Builder fee</th>
+                  <th scope="col" class="num">Deployer share</th>
+                  <th scope="col">Time</th>
                 </tr>
               </thead>
-              <tbody id="book-after-body">
-                <!-- Populated by JS -->
-              </tbody>
+              <tbody id="fills-table-body"></tbody>
             </table>
-            <div class="spread-row" id="book-after-spread" style="color: var(--accent-green);">
-              Desk Spread: $0.0300 (Derinlik: ~$65.50)
-            </div>
           </div>
-        </div>
-      </div>
-
-      <!-- Mainnet Liquidity Score Benchmark Card -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">
-            <span>🌍</span>
-            <span>Mainnet Read-Only Likidite Skoru Benchmarkı</span>
-          </div>
-          <span style="font-size: 0.8rem; color: var(--text-muted);">Canlı Hyperliquid Mainnet Venue Analizi</span>
-        </div>
-        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
-          Mainnet'te bugün 3 deployer venue bulunmaktadır. Outcome.xyz teşvikli iken, diğer venue'lar likidite krizindedir:
-        </p>
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>VENUE</th>
-              <th>ADI</th>
-              <th>TOPLAM MARKET</th>
-              <th>BOŞ DEFTER %</th>
-              <th>MEDYAN SPREAD</th>
-              <th>MEDYAN DERİNLİK</th>
-              <th>DURUM</th>
-              <th>ANALİZ</th>
-            </tr>
-          </thead>
-          <tbody id="mainnet-score-table-body">
-            <!-- Populated by JS -->
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Fills & Inventory Ledger -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">
-            <span>📋</span>
-            <span>İşlem Dolumları ve Envanter Defteri</span>
-          </div>
-          <span style="font-size: 0.8rem; color: var(--text-muted);">Simüle Edilmiş & Testnet İşlemleri</span>
-        </div>
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>İşlem ID</th>
-              <th>Market</th>
-              <th>Yön</th>
-              <th>Fiyat</th>
-              <th>Boyut</th>
-              <th>Tutar ($)</th>
-              <th>Builder Fee ($)</th>
-              <th>Deployer Payı ($)</th>
-              <th>Zaman</th>
-            </tr>
-          </thead>
-          <tbody id="fills-table-body">
-            <!-- Populated by JS -->
-          </tbody>
-        </table>
+        </section>
       </div>
     </section>
 
-    <!-- VIEW 2: TRADER ORDER PORTAL -->
-    <section id="view-trader" class="view-section">
-      <div class="notice-banner">
-        <strong>📌 Hyperliquid Builder Code Kuralı & Mimari Notu:</strong><br>
-        Builder ücreti tahsilatı için trader ana cüzdanıyla 1 kez <code>ApproveBuilderFee</code> (EIP-712) imzalar.<br>
-        <strong>Kritik Kural:</strong> Builder cüzdanının Perps hesabında en az <strong>100 USDC</strong> bulunmalıdır. Builder code için 500k HYPE stake <u>gerekmez</u>.
-      </div>
-
-      <div class="form-grid">
-        <!-- Step 1: Approve Builder Fee -->
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">
-              <span>🔐</span>
-              <span>1. Adım: ApproveBuilderFee Onayı</span>
-            </div>
-            <span class="badge badge-safe" id="builder-approval-status">ONAY BEKLENİYOR</span>
-          </div>
-          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
-            Trader ana cüzdanı Desk builder adresine (%0.10 tavan ile) yetki verir.
+    <!-- ============================= TRADER ============================= -->
+    <section id="view-trader" class="view" role="tabpanel" aria-labelledby="tab-trader-btn">
+      <div class="shell">
+        <div class="strip">
+          <p class="strip__lead">Routing flow for a trader hitting the desk's quotes.</p>
+          <p class="strip__meta">
+            Approve the builder fee once, then orders carry <code>{ b, f }</code>. The signature here is a stub.
           </p>
-
-          <div class="form-group">
-            <label class="form-label">Trader Cüzdan Adresi</label>
-            <input type="text" id="trader-address-input" class="form-input" value="0xUserTrader1111111111111111111111111111111111">
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Desk Builder Adresi (b)</label>
-            <input type="text" id="builder-address-display" class="form-input" readonly value="0x999999cf1046e68e36e1aa2e0e07105eddd7d5b7" style="color: var(--text-muted);">
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Yetkilendirilen Maksimum Fee (maxFeeRate)</label>
-            <input type="text" id="builder-max-rate" class="form-input" value="0.1%" readonly style="color: var(--text-muted);">
-          </div>
-
-          <button class="btn-primary" onclick="approveBuilderFee()">
-            ✍️ ApproveBuilderFee İmzala (EIP-712 Testnet/Dry-Run)
-          </button>
-
-          <div id="approval-receipt" style="display: none; margin-top: 1rem; font-size: 0.8rem; background: rgba(0,0,0,0.3); padding: 0.75rem; border-radius: 6px; font-family: var(--font-mono);">
-            ✅ Onay kaydedildi! EIP-712 Typed Data hash doğrulandı.
-          </div>
         </div>
 
-        <!-- Step 2: Order Entry Form -->
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">
-              <span>📈</span>
-              <span>2. Adım: Emir Gönderme Formu</span>
-            </div>
-            <span class="badge" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa;">BUILDER ROUTED</span>
-          </div>
+        <div class="split">
+          <section class="block" aria-labelledby="approve-title">
+            <header class="block__head">
+              <h2 class="block__title" id="approve-title">1 — Approve builder fee</h2>
+              <span class="plate" id="builder-approval-status">Not approved</span>
+            </header>
 
-          <form id="order-form" onsubmit="submitTradeOrder(event)">
-            <div class="form-group">
-              <label class="form-label">Market Seç</label>
-              <select id="trade-market-select" class="form-select">
-                <option value="11074">BTC > $85,000 (End of Month) - Spot: $82,250</option>
-                <option value="22569">ETH > $3,200 (Nov 2026) - Spot: $3,105</option>
-                <option value="33102">SOL > $220 (Dec 2026) - Spot: $198</option>
-              </select>
+            <div class="stack">
+              <div class="field">
+                <label class="field__label" for="trader-address-input">Trader address</label>
+                <input type="text" id="trader-address-input" class="input" value="0xUserTrader1111111111111111111111111111111111" spellcheck="false">
+              </div>
+              <div class="field">
+                <label class="field__label" for="builder-address-display">Desk builder address (b)</label>
+                <input type="text" id="builder-address-display" class="input input--readonly" readonly value="0x999999cf1046e68e36e1aa2e0e07105eddd7d5b7">
+              </div>
+              <div class="field">
+                <label class="field__label" for="builder-max-rate">Maximum fee rate</label>
+                <input type="text" id="builder-max-rate" class="input input--readonly" readonly value="0.1%">
+                <p class="field__help">Cap 1.00%. Builder account needs 100 USDC in perps; no HYPE stake.</p>
+              </div>
+              <button class="btn btn--primary" type="button" onclick="approveBuilderFee()">Record approval</button>
+              <div id="approval-receipt" class="receipt" hidden></div>
             </div>
+          </section>
 
-            <div class="form-group">
-              <label class="form-label">İşlem Yönü (Side)</label>
-              <select id="trade-side-select" class="form-select">
-                <option value="buy_yes">YES Al (Call Long)</option>
-                <option value="sell_yes">YES Sat (Call Short)</option>
-                <option value="buy_no">NO Al (Put Long)</option>
-              </select>
-            </div>
+          <section class="block" aria-labelledby="order-title">
+            <header class="block__head">
+              <h2 class="block__title" id="order-title">2 — Send an order</h2>
+              <span class="plate plate--warn">Stub</span>
+            </header>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-              <div class="form-group">
-                <label class="form-label">Fiyat ($)</label>
-                <input type="number" id="trade-price-input" class="form-input" step="0.001" min="0.001" max="0.999" value="0.515">
+            <form id="order-form" class="stack" onsubmit="submitTradeOrder(event)">
+              <div class="field">
+                <label class="field__label" for="trade-market-select">Market</label>
+                <select id="trade-market-select" class="select">
+                  <option value="11074">BTC &gt; $85,000 — spot $82,250</option>
+                  <option value="22569">ETH &gt; $3,200 — spot $3,105</option>
+                  <option value="33102">SOL &gt; $220 — spot $198</option>
+                </select>
               </div>
 
-              <div class="form-group">
-                <label class="form-label">Boyut (Kontrat)</label>
-                <input type="number" id="trade-size-input" class="form-input" step="1" min="1" value="30">
+              <div class="field">
+                <label class="field__label" for="trade-side-select">Side</label>
+                <select id="trade-side-select" class="select">
+                  <option value="buy_yes">Buy YES</option>
+                  <option value="sell_yes">Sell YES</option>
+                  <option value="buy_no">Buy NO</option>
+                </select>
               </div>
-            </div>
 
-            <div class="form-group">
-              <label class="form-label">Builder Code Alanı { "b": adres, "f": fee }</label>
-              <input type="text" id="builder-code-json" class="form-input" readonly value='{"b": "0x999999cf...", "f": 100}' style="font-family: var(--font-mono); font-size: 0.8rem; color: #c084fc;">
-              <small style="color: var(--text-muted); font-size: 0.75rem;">f = 100 (10 bps = %0.10). Max tavan %1.00.</small>
-            </div>
+              <div class="pair">
+                <div class="field">
+                  <label class="field__label" for="trade-price-input">Price</label>
+                  <input type="number" id="trade-price-input" class="input" step="0.001" min="0.001" max="0.999" value="0.515">
+                </div>
+                <div class="field">
+                  <label class="field__label" for="trade-size-input">Size</label>
+                  <input type="number" id="trade-size-input" class="input" step="1" min="1" value="30">
+                  <p class="field__help">Minimum $10 notional.</p>
+                </div>
+              </div>
 
-            <button type="submit" class="btn-primary" style="background: var(--accent-green);">
-              🚀 Emri İlet (Testnet / Dry-Run)
-            </button>
-          </form>
+              <div class="field">
+                <label class="field__label" for="builder-code-json">Builder code</label>
+                <input type="text" id="builder-code-json" class="input input--readonly" readonly value='{"b": "0x999999cf...", "f": 100}'>
+                <p class="field__help"><code>f = 100</code> is 10&nbsp;bps. The cap is 1000.</p>
+              </div>
 
-          <div id="trade-receipt-box" class="receipt-card" style="display: none;">
-            <!-- Populated by JS -->
-          </div>
+              <button type="submit" class="btn btn--primary">Simulate fill</button>
+            </form>
+
+            <div id="trade-receipt-box" class="receipt" hidden></div>
+          </section>
         </div>
       </div>
     </section>
   </main>
+
+  <footer class="footer">
+    <div class="shell footer__inner">
+      <p>HIP-4 Desk — MIT licensed, no BUSL dependency. Hyperliquid public APIs only.</p>
+      <p>Order placement, cancellation and signing are not implemented.</p>
+    </div>
+  </footer>
 
   <script src="/app.js"></script>
 </body>

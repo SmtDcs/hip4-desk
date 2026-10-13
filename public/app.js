@@ -1,40 +1,62 @@
 /**
- * HIP-4 Desk Frontend Application
- * Interacts with REST API for Dashboard, AI Advisory, Builder Fee, and Dead-Man switch.
+ * HIP-4 Desk — deployer desk and trader routing UI.
+ * Talks to the local HTTP API in src/server/index.ts.
+ * The desk never signs or submits orders; every figure here is simulated in-process.
  */
 
 let currentMarketId = 11074;
 let dashboardState = null;
 let currentRecommendation = null;
 
-// Tab switcher
+const fmt = {
+  usd: (n, dp = 2) => `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp })}`,
+  px: (n) => Number(n).toFixed(4),
+  num: (n, dp = 0) => Number(n).toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp }),
+  signed: (n, dp = 2) => `${n >= 0 ? '+' : '-'}$${Math.abs(Number(n)).toFixed(dp)}`,
+  pct: (n) => `${Number(n).toFixed(0)}%`,
+  clock: (ms) => new Date(ms).toLocaleTimeString('en-GB', { hour12: false }),
+};
+
+/** Small DOM helper so no value is ever interpolated into HTML. */
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined && text !== null) node.textContent = String(text);
+  return node;
+}
+
+function replace(node, ...children) {
+  if (!node) return;
+  node.replaceChildren(...children);
+}
+
+// ---------------------------------------------------------------- tab routing
+
 function switchTab(tab) {
-  const deployerTabBtn = document.getElementById('tab-deployer-btn');
-  const traderTabBtn = document.getElementById('tab-trader-btn');
+  const deployerBtn = document.getElementById('tab-deployer-btn');
+  const traderBtn = document.getElementById('tab-trader-btn');
   const deployerView = document.getElementById('view-deployer');
   const traderView = document.getElementById('view-trader');
 
-  if (tab === 'trader') {
-    deployerTabBtn.classList.remove('active');
-    traderTabBtn.classList.add('active');
-    deployerView.classList.remove('active');
-    traderView.classList.add('active');
-    window.location.hash = 'trade';
-  } else {
-    traderTabBtn.classList.remove('active');
-    deployerTabBtn.classList.add('active');
-    traderView.classList.remove('active');
-    deployerView.classList.add('active');
-    window.location.hash = 'deployer';
-  }
+  const showTrader = tab === 'trader';
+  deployerBtn.classList.toggle('is-active', !showTrader);
+  traderBtn.classList.toggle('is-active', showTrader);
+  deployerBtn.setAttribute('aria-selected', String(!showTrader));
+  traderBtn.setAttribute('aria-selected', String(showTrader));
+  deployerView.classList.toggle('is-active', !showTrader);
+  traderView.classList.toggle('is-active', showTrader);
+  window.location.hash = showTrader ? 'trade' : 'deployer';
 }
 
-// Initial hash routing
-if (window.location.hash === '#trade') {
-  switchTab('trader');
-}
+if (window.location.hash === '#trade') switchTab('trader');
 
-// Fetch dashboard state
+// Keep the view in step with the URL: deep links and back/forward both land here.
+window.addEventListener('hashchange', () => {
+  switchTab(window.location.hash === '#trade' ? 'trader' : 'deployer');
+});
+
+// ------------------------------------------------------------------ dashboard
+
 async function fetchDashboard() {
   try {
     const res = await fetch('/api/dashboard');
@@ -44,164 +66,157 @@ async function fetchDashboard() {
 
     renderKpis(data.portfolio);
     renderDeadman(data.deadman);
-    renderOrderBook(data.beforeAfterBooks);
+    renderLadders(data.beforeAfterBooks);
     renderFills(data.portfolio.fills);
   } catch (err) {
-    console.error('Failed to fetch dashboard:', err);
+    console.error('Dashboard fetch failed:', err);
   }
 }
 
-// Render KPIs
 function renderKpis(portfolio) {
   if (!portfolio) return;
-  const grossVol = portfolio.fills.reduce((sum, f) => sum + f.notional, 0);
-  document.getElementById('kpi-volume').innerText = `$${grossVol.toFixed(2)}`;
-  
-  const invStr = portfolio.netYesPosition >= 0 ? `+${portfolio.netYesPosition}` : `${portfolio.netYesPosition}`;
-  document.getElementById('kpi-inventory').innerText = `${invStr} YES`;
 
-  const pnlVal = portfolio.totalRealizedPnl;
-  const pnlStr = pnlVal >= 0 ? `+$${pnlVal.toFixed(2)}` : `-$${Math.abs(pnlVal).toFixed(2)}`;
-  document.getElementById('kpi-pnl').innerText = pnlStr;
-  document.getElementById('kpi-pnl').style.color = pnlVal >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+  const gross = portfolio.fills.reduce((sum, f) => sum + f.notional, 0);
+  document.getElementById('kpi-volume').textContent = fmt.usd(gross);
 
-  document.getElementById('kpi-builder-fee').innerText = `$${portfolio.totalBuilderFeeRevenue.toFixed(4)}`;
-  document.getElementById('kpi-deployer-fee').innerText = `$${portfolio.totalDeployerFeeRevenue.toFixed(4)}`;
+  const inv = portfolio.netYesPosition;
+  document.getElementById('kpi-inventory').textContent =
+    `${inv >= 0 ? '+' : '−'}${fmt.num(Math.abs(inv))} YES`;
+
+  const pnl = document.getElementById('kpi-pnl');
+  pnl.textContent = fmt.signed(portfolio.totalRealizedPnl);
+  pnl.style.color = portfolio.totalRealizedPnl >= 0 ? 'var(--bid)' : 'var(--warn)';
+
+  document.getElementById('kpi-builder-fee').textContent = fmt.usd(portfolio.totalBuilderFeeRevenue, 4);
+  document.getElementById('kpi-deployer-fee').textContent = fmt.usd(portfolio.totalDeployerFeeRevenue, 4);
 }
 
-// Render Dead-Man Switch
 function renderDeadman(deadman) {
   if (!deadman) return;
-  const badge = document.getElementById('deadman-badge');
+  const plate = document.getElementById('deadman-badge');
+
   if (deadman.armed) {
-    badge.innerText = `⏳ DEAD-MAN: ${deadman.remainingSeconds}s`;
-    badge.style.background = deadman.remainingSeconds < 10 ? 'rgba(239, 68, 68, 0.2)' : 'var(--accent-blue-bg)';
-    badge.style.color = deadman.remainingSeconds < 10 ? 'var(--accent-red)' : 'var(--accent-blue)';
+    plate.textContent = `Dead-man ${deadman.remainingSeconds}s`;
+    plate.className = deadman.remainingSeconds < 10 ? 'plate plate--danger' : 'plate plate--warn';
   } else {
-    badge.innerText = `⏹️ DEAD-MAN: DISARMED`;
-    badge.style.background = 'rgba(255,255,255,0.05)';
-    badge.style.color = 'var(--text-muted)';
+    plate.textContent = 'Dead-man off';
+    plate.className = 'plate';
   }
 }
 
-// Send Heartbeat ping
 async function sendHeartbeat() {
   try {
     const res = await fetch('/api/deadman/heartbeat', { method: 'POST' });
     const data = await res.json();
-    if (data.deadman) {
-      renderDeadman(data.deadman);
-    }
+    if (data.deadman) renderDeadman(data.deadman);
   } catch (err) {
-    console.error('Failed to send heartbeat:', err);
+    console.error('Heartbeat failed:', err);
   }
 }
 
-// Trigger Emergency Kill-Switch
 async function triggerEmergencyKill() {
-  if (!confirm('TÜM KOTASYONLARI İPTAL ETMEK VE KİLL-SWİTCH ÇALIŞTIRMAK İSTİYOR MUSUNUZ?')) return;
+  if (!confirm('Cancel every quote on the desk and stop the quoting loop?')) return;
   try {
     const res = await fetch('/api/kill-switch', { method: 'POST' });
     const data = await res.json();
-    alert(`🚨 Acil Durum İptali: ${data.message}`);
+    alert(data.message);
     fetchDashboard();
   } catch (err) {
-    alert('Hata: ' + err.message);
+    alert(`Cancel-all failed: ${err.message}`);
   }
 }
 
-// Render Before / After Order Book
-function renderOrderBook(markets) {
-  if (!markets) return;
-  const market = markets.find(m => m.outcomeId === currentMarketId) || markets[0];
-  if (!market) return;
+// -------------------------------------------------------------------- ladders
 
-  // Before panel
-  const beforeBody = document.getElementById('book-before-body');
-  document.getElementById('book-before-status').innerText = market.before.status;
+function ladderRung(kind, size, price) {
+  const rung = el('div', `rung rung--${kind}`);
+  rung.appendChild(el('span', 'rung__sz rung__sz--bid', kind === 'ask' ? '' : fmt.num(size)));
+  rung.appendChild(el('span', 'rung__px', fmt.px(price)));
+  rung.appendChild(el('span', 'rung__sz rung__sz--ask', kind === 'bid' ? '' : fmt.num(size)));
+  return rung;
+}
 
-  if (market.before.bids.length === 0 && market.before.asks.length === 0) {
-    beforeBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Defterde emir yok (Deserted Book)</td></tr>`;
-    document.getElementById('book-before-spread').innerText = 'Mevcut Piyasa Spread\'i: N/A (Emir Yok)';
+function renderLadders(markets) {
+  if (!markets || !markets.length) return;
+  const market = markets.find((m) => m.outcomeId === currentMarketId) || markets[0];
+
+  // Before: a book with nothing resting on it.
+  const beforeStatus = document.getElementById('book-before-status');
+  const beforeSpread = document.getElementById('book-before-spread');
+  const beforeRows = document.getElementById('book-before-body');
+  const beforeEmpty = market.before.bids.length === 0 && market.before.asks.length === 0;
+
+  beforeStatus.textContent = market.before.status;
+  const beforeRungs = [];
+
+  if (beforeEmpty) {
+    beforeRungs.push(el('p', 'rung--empty-note', 'No resting orders on either side.'));
+    beforeSpread.textContent = 'Spread — unquotable, nothing to cross';
   } else {
-    let rows = '';
-    market.before.asks.forEach(a => {
-      const notional = (parseFloat(a.px) * parseFloat(a.sz)).toFixed(2);
-      rows += `<tr><td class="text-ask">$${parseFloat(a.px).toFixed(4)}</td><td>${a.sz}</td><td>$${notional}</td></tr>`;
-    });
-    market.before.bids.forEach(b => {
-      const notional = (parseFloat(b.px) * parseFloat(b.sz)).toFixed(2);
-      rows += `<tr><td class="text-bid">$${parseFloat(b.px).toFixed(4)}</td><td>${b.sz}</td><td>$${notional}</td></tr>`;
-    });
-    beforeBody.innerHTML = rows;
-    const spdStr = market.before.spread !== null ? `$${market.before.spread.toFixed(4)}` : 'N/A';
-    document.getElementById('book-before-spread').innerText = `Mevcut Piyasa Spread'i: ${spdStr} (Uçurum)`;
+    market.before.asks.forEach((a) => beforeRungs.push(ladderRung('ask', a.sz, a.px)));
+    market.before.bids.forEach((b) => beforeRungs.push(ladderRung('bid', b.sz, b.px)));
+    beforeSpread.textContent = market.before.spread === null
+      ? 'Spread — one-sided'
+      : `Spread ${fmt.px(market.before.spread)} · depth posted ${fmt.usd(market.before.depthUsd)}`;
   }
+  replace(beforeRows, ...beforeRungs);
 
-  // After panel
-  const afterBody = document.getElementById('book-after-body');
-  document.getElementById('book-after-status').innerText = market.after.status;
+  // After: asks stacked down toward the spread, the spread itself ruled out,
+  // then bids. Reading order matches a dealing ladder.
+  const afterRows = document.getElementById('book-after-body');
+  document.getElementById('book-after-status').textContent = market.after.status;
 
-  let afterRows = '';
-  // Asks descending
-  const sortedAsks = [...market.after.asks].reverse();
-  sortedAsks.forEach(a => {
-    const notional = (parseFloat(a.px) * parseFloat(a.sz)).toFixed(2);
-    afterRows += `<tr><td class="text-ask">$${parseFloat(a.px).toFixed(4)}</td><td>${a.sz}</td><td>$${notional}</td></tr>`;
-  });
-  // Bids descending
-  market.after.bids.forEach(b => {
-    const notional = (parseFloat(b.px) * parseFloat(b.sz)).toFixed(2);
-    afterRows += `<tr><td class="text-bid">$${parseFloat(b.px).toFixed(4)}</td><td>${b.sz}</td><td>$${notional}</td></tr>`;
-  });
-  afterBody.innerHTML = afterRows;
+  const afterRungs = [];
+  [...market.after.asks].reverse().forEach((a) => afterRungs.push(ladderRung('ask', a.sz, a.px)));
+  const spreadRung = el('div', 'rung rung--spread');
+  spreadRung.appendChild(el('span', 'rung__spread-label', `spread ${fmt.px(market.after.spread)}`));
+  afterRungs.push(spreadRung);
+  market.after.bids.forEach((b) => afterRungs.push(ladderRung('bid', b.sz, b.px)));
+  replace(afterRows, ...afterRungs);
 
-  document.getElementById('book-after-spread').innerText = `Desk Spread: $${market.after.spread.toFixed(4)} | Derinlik: ~$${market.after.depthUsd.toFixed(2)}`;
+  document.getElementById('book-after-spread').textContent =
+    `Both sides live · top-of-book depth ${fmt.usd(market.after.depthUsd)}`;
 }
 
-// On Market Selection changed
 function onMarketChange() {
-  const select = document.getElementById('market-select');
-  currentMarketId = Number(select.value);
-  if (dashboardState) {
-    renderOrderBook(dashboardState.beforeAfterBooks);
-  }
+  currentMarketId = Number(document.getElementById('market-select').value);
+  if (dashboardState) renderLadders(dashboardState.beforeAfterBooks);
   fetchAiRecommendation();
 }
 
-// Render Fills Ledger
+// ---------------------------------------------------------------------- fills
+
 function renderFills(fills) {
-  const tbody = document.getElementById('fills-table-body');
+  const body = document.getElementById('fills-table-body');
   if (!fills || fills.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 1rem;">Henüz işlem gerçekleşmedi.</td></tr>`;
+    const tr = el('tr');
+    const td = el('td', 'empty-row', 'No fills yet. Send one from the trader tab.');
+    td.colSpan = 9;
+    tr.appendChild(td);
+    replace(body, tr);
     return;
   }
 
-  tbody.innerHTML = fills.map(f => {
-    const timeStr = new Date(f.timestamp).toLocaleTimeString();
-    const sideBadge = f.side === 'buy_yes'
-      ? '<span style="color: var(--accent-green); font-weight: 600;">YES AL</span>'
-      : (f.side === 'sell_yes'
-        ? '<span style="color: var(--accent-red); font-weight: 600;">YES SAT</span>'
-        : '<span style="color: var(--accent-amber); font-weight: 600;">NO AL</span>');
+  const sideLabel = { buy_yes: 'Buy YES', sell_yes: 'Sell YES', buy_no: 'Buy NO' };
+  const sideClass = { buy_yes: 'side--buy', sell_yes: 'side--sell', buy_no: 'side--buy' };
 
-    return `
-      <tr>
-        <td style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted);">${f.fillId.slice(-8)}</td>
-        <td>Outcome #${f.outcomeId}</td>
-        <td>${sideBadge}</td>
-        <td style="font-family: var(--font-mono);">$${f.price.toFixed(4)}</td>
-        <td style="font-family: var(--font-mono);">${f.size}</td>
-        <td style="font-family: var(--font-mono); font-weight: 600;">$${f.notional.toFixed(2)}</td>
-        <td style="font-family: var(--font-mono); color: #c084fc;">+$${f.builderFee.toFixed(4)}</td>
-        <td style="font-family: var(--font-mono); color: #60a5fa;">+$${f.deployerFeeShare.toFixed(4)}</td>
-        <td style="color: var(--text-muted); font-size: 0.8rem;">${timeStr}</td>
-      </tr>
-    `;
-  }).join('');
+  replace(body, ...fills.map((f) => {
+    const tr = el('tr');
+    tr.appendChild(el('td', 'mono', f.fillId.slice(-8)));
+    tr.appendChild(el('td', null, `#${f.outcomeId}`));
+    tr.appendChild(el('td', `side ${sideClass[f.side] || ''}`, sideLabel[f.side] || f.side));
+    tr.appendChild(el('td', 'num', `$${fmt.px(f.price)}`));
+    tr.appendChild(el('td', 'num', fmt.num(f.size)));
+    tr.appendChild(el('td', 'num table__strong', fmt.usd(f.notional)));
+    tr.appendChild(el('td', 'num pos', fmt.usd(f.builderFee, 4)));
+    tr.appendChild(el('td', 'num', fmt.usd(f.deployerFeeShare, 4)));
+    tr.appendChild(el('td', null, fmt.clock(f.timestamp)));
+    return tr;
+  }));
 }
 
-// Fetch AI Parameter Recommendation
+// ------------------------------------------------------------------- advisory
+
 async function fetchAiRecommendation() {
   try {
     const res = await fetch(`/api/ai/recommendation?outcomeId=${currentMarketId}`);
@@ -209,62 +224,43 @@ async function fetchAiRecommendation() {
     const data = await res.json();
     currentRecommendation = data;
 
-    // Render explanation
-    document.getElementById('ai-explanation-text').innerText = data.explanation;
-    document.getElementById('ai-urgency-tag').innerText = `URGENCY: ${data.urgency.toUpperCase()} (Güven: %${(data.confidence * 100).toFixed(0)})`;
-    document.getElementById('ai-rules-triggered').innerText = `Tetiklenen Kurallar: ${data.rulesTriggered.join(', ')}`;
+    document.getElementById('ai-explanation-text').textContent = data.explanation;
+    document.getElementById('ai-urgency-tag').textContent =
+      `Urgency ${data.urgency.toUpperCase()} · confidence ${fmt.pct(data.confidence * 100)}`;
+    document.getElementById('ai-rules-triggered').textContent =
+      `Rules fired: ${data.rulesTriggered.join(' · ')}`;
 
-    // Render diff grid
     const cur = data.currentParams;
     const sug = data.suggestedParams;
+    const rows = [
+      ['Base spread', cur.baseSpread, sug.baseSpread, (v) => v],
+      ['Order notional', cur.orderSizeNotional, sug.orderSizeNotional, (v) => `$${v}`],
+      ['Inventory cap', cur.maxInventory, sug.maxInventory, (v) => fmt.num(v)],
+      ['Expiry pullback', cur.expiryPullbackMinutes, sug.expiryPullbackMinutes, (v) => `${v} min`],
+    ];
 
-    const diffGrid = document.getElementById('ai-diff-grid');
-    diffGrid.innerHTML = `
-      <div class="ai-diff-item">
-        <div class="ai-diff-label">Taban Spread (baseSpread)</div>
-        <div class="ai-diff-val">
-          <span>${cur.baseSpread}</span>
-          <span class="ai-diff-arrow">→</span>
-          <span style="color: #c084fc;">${sug.baseSpread}</span>
-        </div>
-      </div>
-      <div class="ai-diff-item">
-        <div class="ai-diff-label">Emir Büyüklüğü (Notional)</div>
-        <div class="ai-diff-val">
-          <span>$${cur.orderSizeNotional}</span>
-          <span class="ai-diff-arrow">→</span>
-          <span style="color: #c084fc;">$${sug.orderSizeNotional}</span>
-        </div>
-      </div>
-      <div class="ai-diff-item">
-        <div class="ai-diff-label">Envanter Tavanı (maxInventory)</div>
-        <div class="ai-diff-val">
-          <span>${cur.maxInventory}</span>
-          <span class="ai-diff-arrow">→</span>
-          <span style="color: #c084fc;">${sug.maxInventory}</span>
-        </div>
-      </div>
-      <div class="ai-diff-item">
-        <div class="ai-diff-label">Vade Geri Çekilme (Pullback)</div>
-        <div class="ai-diff-val">
-          <span>${cur.expiryPullbackMinutes} dk</span>
-          <span class="ai-diff-arrow">→</span>
-          <span style="color: #c084fc;">${sug.expiryPullbackMinutes} dk</span>
-        </div>
-      </div>
-    `;
+    replace(document.getElementById('ai-diff-grid'), ...rows.map(([label, from, to, unit]) => {
+      const item = el('div', 'diff__item');
+      item.appendChild(el('div', 'diff__label', label));
+      const val = el('div', 'diff__val');
+      val.appendChild(el('span', 'diff__from', unit(from)));
+      val.appendChild(el('span', 'diff__arrow', '→'));
+      val.appendChild(el('span', 'diff__to', unit(to)));
+      item.appendChild(val);
+      return item;
+    }));
   } catch (err) {
-    console.error('Failed to fetch AI recommendation:', err);
+    console.error('Advisory fetch failed:', err);
   }
 }
 
-// Deployer applies AI recommendation
 async function applyAiRecommendation() {
   if (!currentRecommendation) return;
 
   const btn = document.getElementById('btn-apply-ai');
   btn.disabled = true;
-  btn.innerText = 'Uygulanıyor...';
+  const label = btn.textContent;
+  btn.textContent = 'Applying…';
 
   try {
     const res = await fetch('/api/ai/apply', {
@@ -274,49 +270,55 @@ async function applyAiRecommendation() {
     });
     const data = await res.json();
     if (data.success) {
-      alert(`✅ Başarılı!\n${data.message}`);
       fetchDashboard();
       fetchAiRecommendation();
     } else {
-      alert('Hata: ' + data.error);
+      alert(data.error);
     }
   } catch (err) {
-    alert('Hata: ' + err.message);
+    alert(`Apply failed: ${err.message}`);
   } finally {
     btn.disabled = false;
-    btn.innerHTML = '<span>✓</span> Deployer Onayı ile Parametreleri Uygula';
+    btn.textContent = label;
   }
 }
 
-// Fetch Mainnet Liquidity Scores
+// --------------------------------------------------------------- mainnet snapshot
+
 async function fetchMainnetScores() {
   try {
     const res = await fetch('/api/liquidity-scores');
     if (!res.ok) return;
     const data = await res.json();
 
-    const tbody = document.getElementById('mainnet-score-table-body');
-    tbody.innerHTML = data.venues.map(v => {
-      const spreadStr = v.medianSpread !== null ? v.medianSpread.toFixed(4) : 'N/A';
-      return `
-        <tr>
-          <td><strong style="font-family: var(--font-mono);">${v.venue}</strong></td>
-          <td>${v.name}</td>
-          <td>${v.totalOutcomesInVenue}</td>
-          <td style="color: ${v.emptyBooksPercentage > 50 ? 'var(--accent-red)' : 'inherit'}; font-weight: 600;">${v.emptyBooksPercentage}%</td>
-          <td style="font-family: var(--font-mono);">${spreadStr}</td>
-          <td style="font-family: var(--font-mono);">$${v.medianDepthTop5Usd.toFixed(2)}</td>
-          <td><span class="badge" style="background: rgba(255,255,255,0.05);">${v.status}</span></td>
-          <td style="font-size: 0.8rem; color: var(--text-secondary);">${v.note}</td>
-        </tr>
-      `;
-    }).join('');
+    const statusClass = (venue) => {
+      if (venue.status.includes('LIQUID')) return 'plate plate--live';
+      if (venue.status.includes('DESERTED')) return 'plate plate--danger';
+      return 'plate plate--warn';
+    };
+
+    replace(document.getElementById('mainnet-score-table-body'),
+      ...data.venues.map((v) => {
+        const tr = el('tr');
+        tr.appendChild(el('td', 'mono table__strong', v.venue));
+        tr.appendChild(el('td', null, v.name));
+        tr.appendChild(el('td', 'num', fmt.num(v.totalOutcomesInVenue)));
+        tr.appendChild(el('td', 'num', v.emptyBooksPercentage > 50 ? 'neg' : null, fmt.pct(v.emptyBooksPercentage)));
+        tr.appendChild(el('td', 'num', v.medianSpread === null ? '—' : fmt.px(v.medianSpread)));
+        tr.appendChild(el('td', 'num', fmt.usd(v.medianDepthTop5Usd)));
+        const tag = el('td');
+        tag.appendChild(el('span', statusClass(v), v.status));
+        tr.appendChild(tag);
+        tr.appendChild(el('td', null, v.note));
+        return tr;
+      }));
   } catch (err) {
-    console.error('Failed to fetch mainnet scores:', err);
+    console.error('Benchmark fetch failed:', err);
   }
 }
 
-// Trader: Approve Builder Fee
+// --------------------------------------------------------------------- trader
+
 async function approveBuilderFee() {
   const traderAddress = document.getElementById('trader-address-input').value;
   try {
@@ -326,26 +328,38 @@ async function approveBuilderFee() {
       body: JSON.stringify({ traderAddress, maxFeeRate: '0.1%' }),
     });
     const data = await res.json();
-    if (data.success) {
-      document.getElementById('builder-approval-status').innerText = '✅ ONAYLANDI (AKTİF)';
-      document.getElementById('builder-approval-status').style.background = 'var(--accent-green-bg)';
-      document.getElementById('builder-approval-status').style.color = 'var(--accent-green)';
-      
-      const receipt = document.getElementById('approval-receipt');
-      receipt.style.display = 'block';
-      receipt.innerHTML = `
-        <strong>✅ ApproveBuilderFee EIP-712 İmzası Başarılı:</strong><br>
-        • Builder: ${data.approval.builder}<br>
-        • Max Fee: ${data.approval.maxFeeRate}<br>
-        • Signature: ${data.approval.signature}
-      `;
+
+    if (!data.success) {
+      alert(data.error || 'Approval failed.');
+      return;
     }
+
+    const status = document.getElementById('builder-approval-status');
+    status.textContent = 'Approved';
+    status.className = 'plate plate--live';
+
+    const receipt = document.getElementById('approval-receipt');
+    const head = el('strong', null, 'Approval recorded (stub signature)');
+    const rows = [
+      ['Builder', data.approval.builder],
+      ['Max fee rate', data.approval.maxFeeRate],
+      ['Chain', data.typedData.message.hyperliquidChain],
+      ['EIP-712 chainId', data.typedData.domain.chainId],
+      ['Signature', data.approval.signature],
+    ].map(([k, v]) => {
+      const line = el('div');
+      line.appendChild(el('span', 'k', `${k}: `));
+      line.appendChild(el('span', 'v', v));
+      return line;
+    });
+
+    replace(receipt, head, ...rows);
+    receipt.hidden = false;
   } catch (err) {
-    alert('Hata: ' + err.message);
+    alert(`Approval failed: ${err.message}`);
   }
 }
 
-// Trader: Submit Trade Order with Builder Code
 async function submitTradeOrder(event) {
   event.preventDefault();
 
@@ -359,46 +373,44 @@ async function submitTradeOrder(event) {
     const res = await fetch('/api/trade/order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        outcomeId,
-        side,
-        price,
-        size,
-        traderAddress,
-      }),
+      body: JSON.stringify({ outcomeId, side, price, size, traderAddress }),
     });
     const data = await res.json();
-    if (data.success) {
-      const receiptBox = document.getElementById('trade-receipt-box');
-      receiptBox.style.display = 'block';
-      receiptBox.innerHTML = `
-        <div style="color: var(--accent-green); font-weight: 700; margin-bottom: 0.5rem;">
-          İşlem Testnet/Dry-Run Üzerinde Gerçekleşti!
-        </div>
-        <div>• Fill ID: ${data.fill.fillId}</div>
-        <div>• Tutar: $${data.fill.notional.toFixed(2)} (${data.fill.size} kontrat @ $${data.fill.price})</div>
-        <div>• Taker Fee: $${data.feeBreakdown.takerFeeUsd.toFixed(4)}</div>
-        <div style="color: #c084fc; font-weight: 600;">• Builder Fee (%0.10 Desk Geliri): +$${data.feeBreakdown.builderFeeUsd.toFixed(4)}</div>
-        <div style="color: #60a5fa;">• Deployer Fee Payı: +$${data.feeBreakdown.deployerFeeShareUsd.toFixed(4)}</div>
-        <div style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-muted);">
-          Builder Code { b: "${data.fill.builderCode.b}", f: ${data.fill.builderCode.f} } başarıyla uygulandı.
-        </div>
-      `;
 
-      // Refresh dashboard
-      fetchDashboard();
-    } else {
-      alert('İşlem Hatası: ' + data.error);
+    if (!data.success) {
+      alert(data.error || 'Order rejected.');
+      return;
     }
+
+    const box = document.getElementById('trade-receipt-box');
+    const head = el('strong', null, 'Fill simulated — no order was sent');
+    const rows = [
+      ['Fill', data.fill.fillId],
+      ['Notional', `${fmt.usd(data.fill.notional)} · ${fmt.num(data.fill.size)} contracts @ $${fmt.px(data.fill.price)}`],
+      ['Base protocol fee', fmt.usd(data.feeBreakdown.takerFeeUsd, 4)],
+      ['Builder fee', `${fmt.usd(data.feeBreakdown.builderFeeUsd, 4)} (0.10%)`],
+      ['Deployer share', `${fmt.usd(data.feeBreakdown.deployerFeeShareUsd, 4)} (scale ${data.feeBreakdown.deployerFeeScale})`],
+      ['Builder code', `{ b: ${data.fill.builderCode.b}, f: ${data.fill.builderCode.f} }`],
+    ].map(([k, v]) => {
+      const line = el('div');
+      line.appendChild(el('span', 'k', `${k}: `));
+      line.appendChild(el('span', 'v', v));
+      return line;
+    });
+
+    replace(box, head, ...rows);
+    box.hidden = false;
+
+    fetchDashboard();
   } catch (err) {
-    alert('Hata: ' + err.message);
+    alert(`Order failed: ${err.message}`);
   }
 }
 
-// Initial bootstrap
+// --------------------------------------------------------------------- boot
+
 fetchDashboard();
 fetchAiRecommendation();
 fetchMainnetScores();
 
-// 3-second polling for dead-man countdown & dashboard metrics
 setInterval(fetchDashboard, 3000);

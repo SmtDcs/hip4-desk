@@ -51,14 +51,17 @@ export function createServerState(): ServerState {
   const deadman = new DeadManSwitchManager({
     timeoutMs: 30000,
     onExpired: () => {
-      console.warn(`[Server] Dead-man switch expired! Emergency order purge executed.`);
+      console.warn(`[Server] Dead-man switch expired: quoting loop stopped. No cancel action was sent.`);
     },
   });
 
   // Arm deadman switch by default in desk server
   deadman.arm();
 
-  // Representative before/after market fixtures based on live HIP-4 testnet/mainnet behavior
+  // Representative before/after market fixtures for the walkthrough.
+  // These are hand-written examples: the desk server does not query Hyperliquid,
+  // so the market names, marks and books below are illustrative only. For books
+  // the engine actually derives from live data, run `npm run quote:dry-run`.
   const markets: BeforeAfterBookView[] = [
     {
       outcomeId: 11074,
@@ -71,7 +74,7 @@ export function createServerState(): ServerState {
         asks: [],
         spread: null,
         depthUsd: 0,
-        status: 'EMPTY / DESERTED BOOK (No MM)',
+        status: 'Empty — no maker quoting',
       },
       after: {
         bids: [
@@ -86,7 +89,7 @@ export function createServerState(): ServerState {
         ],
         spread: 0.0300,
         depthUsd: 65.50,
-        status: 'ACTIVE TWO-SIDED LIQUIDITY (HIP-4 Desk)',
+        status: 'Two-sided',
       },
     },
     {
@@ -100,7 +103,7 @@ export function createServerState(): ServerState {
         asks: [{ px: '0.9500', sz: '10', n: 1 }],
         spread: 0.9000,
         depthUsd: 10.0,
-        status: 'WIDE UNTRADABLE SPREAD (0.9000)',
+        status: 'One-sided, spread 0.9000',
       },
       after: {
         bids: [
@@ -113,7 +116,7 @@ export function createServerState(): ServerState {
         ],
         spread: 0.0300,
         depthUsd: 69.80,
-        status: 'TIGHT TIGHT SPREAD (0.0300) (HIP-4 Desk)',
+        status: 'Two-sided, spread 0.0300',
       },
     },
     {
@@ -127,7 +130,7 @@ export function createServerState(): ServerState {
         asks: [{ px: '0.8800', sz: '15', n: 1 }],
         spread: null,
         depthUsd: 13.2,
-        status: 'ONE-SIDED ASKS ONLY',
+        status: 'One-sided — asks only',
       },
       after: {
         bids: [
@@ -140,7 +143,7 @@ export function createServerState(): ServerState {
         ],
         spread: 0.0300,
         depthUsd: 74.20,
-        status: 'SYMMETRIC SPREAD (HIP-4 Desk)',
+        status: 'Two-sided, spread 0.0300',
       },
     },
   ];
@@ -155,7 +158,8 @@ export function createServerState(): ServerState {
   };
 }
 
-// Cached benchmark scores reflecting live mainnet analysis from liquidity-score.ts
+// Saved mainnet sample from 9 Oct 2026 (read-only). Refresh with `npm run score:mainnet`;
+// the numbers move with the venues and are not pulled live into this panel.
 const MAINNET_BENCHMARK_SCORES = [
   {
     venue: 'out',
@@ -167,8 +171,8 @@ const MAINNET_BENCHMARK_SCORES = [
     medianSpread: 0.0004,
     averageSpread: 0.0125,
     medianDepthTop5Usd: 1320.50,
-    status: '🟢 LIQUID',
-    note: 'Incentivized venue with Maker Rewards pool',
+    status: 'LIQUID',
+    note: 'Tightest book of the three venues in this sample.',
   },
   {
     venue: 'txyz',
@@ -180,12 +184,12 @@ const MAINNET_BENCHMARK_SCORES = [
     medianSpread: 0.9933,
     averageSpread: 0.8120,
     medianDepthTop5Usd: 83.20,
-    status: '🔴 DESERTED',
-    note: 'Severe illiquidity: 80% empty or 0.99+ spread. Prime target for HIP-4 Desk.',
+    status: 'DESERTED',
+    note: '80% of sampled books either empty or quoted at 0.99+. Primary target for the desk.',
   },
   {
     venue: 'skew',
-    name: 'Skew Venue',
+    name: 'Skew',
     totalOutcomesInVenue: 61,
     sampledOutcomesCount: 20,
     emptyBooksCount: 8,
@@ -193,8 +197,8 @@ const MAINNET_BENCHMARK_SCORES = [
     medianSpread: 0.0435,
     averageSpread: 0.1558,
     medianDepthTop5Usd: 416.00,
-    status: '🟡 WIDE',
-    note: 'Moderate liquidity with sporadic wide gaps.',
+    status: 'WIDE',
+    note: 'Books exist but the spread swings wide between prints.',
   },
 ];
 
@@ -273,7 +277,9 @@ export function createHttpServer(state: ServerState): http.Server {
         const outcomeId = Number(url.searchParams.get('outcomeId') || '11074');
         const marketView = state.markets.find((m) => m.outcomeId === outcomeId) || state.markets[0];
 
-        // Synthesize market data structure
+        // Synthesize market data structure from the illustrative fixture book.
+        // The desk server holds no Hyperliquid client, so mark, vol and expiry
+        // here are fixed example inputs rather than a live read.
         const dummyMarket: ParsedPriceBinary = {
           outcomeId: marketView.outcomeId,
           venue: 'txyz',
@@ -297,7 +303,7 @@ export function createHttpServer(state: ServerState): http.Server {
           isEmpty: marketView.before.bids.length === 0 && marketView.before.asks.length === 0,
         };
 
-        // Simulated elevated vol on BTC (74.5%) to trigger high vol rule
+        // Example vol input chosen to exercise the elevated-vol rule on BTC.
         const vol = marketView.underlying === 'BTC' ? 0.78 : 0.55;
 
         const recommendation = AiParamAdvisor.generateRecommendation(
@@ -321,14 +327,14 @@ export function createHttpServer(state: ServerState): http.Server {
           return;
         }
 
-        // Deployer explicit approval gate
+        // Deployer explicit approval gate: nothing is applied until this call.
         state.params = AiParamAdvisor.applyApprovedRecommendation(body.recommendation, state.params);
 
-        console.log(`[Deployer Action] AI Parameters Approved & Applied:`, state.params);
+        console.log(`[Deployer action] Advisory parameters applied:`, state.params);
 
         sendJson(200, {
           success: true,
-          message: 'AI parameter recommendations approved and successfully applied to quoting engine!',
+          message: 'Parameters applied to the desk. Order placement is not wired up in this build, so nothing was sent to Hyperliquid.',
           updatedParams: state.params,
         });
         return;
@@ -371,7 +377,7 @@ export function createHttpServer(state: ServerState): http.Server {
 
         sendJson(200, {
           success: true,
-          message: 'ApproveBuilderFee successfully signed and recorded (Testnet/Dry-Run).',
+          message: 'Builder fee approval recorded locally. The EIP-712 payload was composed but not signed or submitted.',
           approval,
           typedData,
         });
@@ -409,7 +415,7 @@ export function createHttpServer(state: ServerState): http.Server {
 
         sendJson(200, {
           success: true,
-          message: 'Trade executed successfully on testnet/dry-run with builder code applied.',
+          message: 'Fill simulated in-process with the builder code attached. No order was sent to Hyperliquid.',
           fill,
           feeBreakdown,
           updatedPortfolio: state.inventoryTracker.getPortfolioState(),

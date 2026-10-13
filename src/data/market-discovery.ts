@@ -128,13 +128,11 @@ export class MarketDiscovery {
         underlyingPerp = btcMatch[1].toUpperCase();
       }
     }
-    // Clean up "xyz:SKHX" or "BTC-USD" -> extract root symbol
+    // Clean up "BTC-USD" -> extract root symbol.
+    // Keep HIP-3 qualified names intact ("xyz:SKHX"): the dex prefix is what
+    // resolves the mark price, and the dex universe already names perps that way.
     if (underlyingPerp.includes('-')) {
       underlyingPerp = underlyingPerp.split('-')[0];
-    }
-    if (underlyingPerp.includes(':')) {
-      const segs = underlyingPerp.split(':');
-      underlyingPerp = segs[segs.length - 1];
     }
     underlyingPerp = underlyingPerp.toUpperCase().trim();
 

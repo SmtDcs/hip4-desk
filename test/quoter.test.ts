@@ -174,4 +174,22 @@ const sampleMarket: ParsedPriceBinary = {
   console.log(`  ✅ Exact Cap Boundary: 99 active, exactly 100 / -100 safely pulled`);
 }
 
+// 8. Minimum notional holds at the low end of the price band
+// A deep out-of-the-money binary quotes near 0.001, where rounding the price up
+// to 0.01 for sizing would leave a $1.50 order that HIP-4 rejects.
+{
+  const deepOtm = quoter.generateQuote(sampleMarket, 20000, 0.60); // spot far below strike
+  assert.strictEqual(deepOtm.status, 'active');
+  assert(
+    deepOtm.yesBidSz * deepOtm.yesBidPx >= 10,
+    `Bid notional must stay >= 10 at low prices, got $${(deepOtm.yesBidSz * deepOtm.yesBidPx).toFixed(2)}`
+  );
+  assert(
+    deepOtm.yesAskSz * deepOtm.yesAskPx >= 10,
+    `Ask notional must stay >= 10 at low prices, got $${(deepOtm.yesAskSz * deepOtm.yesAskPx).toFixed(2)}`
+  );
+
+  console.log(`  ✅ Low-Price Sizing: Bid ${deepOtm.yesBidSz} @ $${deepOtm.yesBidPx} = $${(deepOtm.yesBidSz * deepOtm.yesBidPx).toFixed(2)} notional, above the $10 floor`);
+}
+
 console.log('\nAll Quoting Engine & Risk Limits tests passed successfully!\n');

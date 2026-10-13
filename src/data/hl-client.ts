@@ -94,22 +94,28 @@ export class HyperliquidClient {
   }
 
   /**
-   * Fetches perp metadata and live asset contexts (markPx, oraclePx, midPx, funding)
+   * Fetches perp metadata and live asset contexts (markPx, oraclePx, midPx, funding).
+   * Pass `dex` for a HIP-3 builder-deployed perp dex, whose universe names are
+   * prefixed with the dex (e.g. "xyz:XYZ100"). The default dex needs no argument.
    */
-  async getMetaAndAssetCtxs(): Promise<MetaAndAssetCtxsResponse> {
-    return this.requestInfo<MetaAndAssetCtxsResponse>({
-      type: 'metaAndAssetCtxs',
-    });
+  async getMetaAndAssetCtxs(dex?: string): Promise<MetaAndAssetCtxsResponse> {
+    const body: Record<string, unknown> = { type: 'metaAndAssetCtxs' };
+    if (dex) body.dex = dex;
+    return this.requestInfo<MetaAndAssetCtxsResponse>(body);
   }
 
   /**
-   * Looks up the mark price and oracle price for a specific perp coin (e.g. "BTC", "ETH", "HYPE")
+   * Looks up the mark price and oracle price for a specific perp coin.
+   * Accepts a plain name ("BTC") or a HIP-3 qualified name ("xyz:SKHX").
    */
   async getPerpMarkPrice(
     coinName: string
   ): Promise<{ markPx: number; oraclePx: number; midPx: number } | null> {
-    const [meta, ctxs] = await this.getMetaAndAssetCtxs();
     const cleanCoin = coinName.toUpperCase().trim();
+    // "xyz:SKHX" lives in the xyz dex; plain "BTC" lives in the default dex.
+    const dex = cleanCoin.includes(':') ? cleanCoin.split(':')[0].toLowerCase() : undefined;
+
+    const [meta, ctxs] = await this.getMetaAndAssetCtxs(dex);
     const index = meta.universe.findIndex((u) => u.name.toUpperCase() === cleanCoin);
 
     if (index === -1 || !ctxs[index]) {

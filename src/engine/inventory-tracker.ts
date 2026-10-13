@@ -17,13 +17,14 @@ export class InventoryTracker {
   }
 
   /**
-   * Seed realistic initial fills so the dashboard displays active history on initial load
+   * Seed example fills so the ledger shows worked accounting on first load.
+   * IDs carry a `sample_` prefix so seeded rows are distinguishable from real flow.
    */
   private seedInitialFills(): void {
     const now = Date.now();
     const sampleFills: TradeFill[] = [
       {
-        fillId: 'fill_seed_001',
+        fillId: 'sample_001',
         outcomeId: 11074,
         side: 'buy_yes',
         price: 0.1134,
@@ -31,12 +32,12 @@ export class InventoryTracker {
         notional: 15.31,
         takerFee: 0.0054,
         builderFee: 0.0153,
-        deployerFeeShare: 0.0027,
+        deployerFeeShare: 0.0054,
         builderCode: { b: '0x999999cf1046e68e36e1aa2e0e07105eddd7d5b7', f: 100 },
         timestamp: now - 3600000 * 2,
       },
       {
-        fillId: 'fill_seed_002',
+        fillId: 'sample_002',
         outcomeId: 11074,
         side: 'sell_yes',
         price: 0.1250,
@@ -44,12 +45,12 @@ export class InventoryTracker {
         notional: 11.25,
         takerFee: 0.0039,
         builderFee: 0.0113,
-        deployerFeeShare: 0.0020,
+        deployerFeeShare: 0.0039,
         builderCode: { b: '0x999999cf1046e68e36e1aa2e0e07105eddd7d5b7', f: 100 },
         timestamp: now - 3600000 * 1,
       },
       {
-        fillId: 'fill_seed_003',
+        fillId: 'sample_003',
         outcomeId: 22569,
         side: 'buy_yes',
         price: 0.4850,
@@ -57,7 +58,7 @@ export class InventoryTracker {
         notional: 16.98,
         takerFee: 0.0059,
         builderFee: 0.0170,
-        deployerFeeShare: 0.0030,
+        deployerFeeShare: 0.0059,
         builderCode: { b: '0x999999cf1046e68e36e1aa2e0e07105eddd7d5b7', f: 100 },
         timestamp: now - 1800000,
       },

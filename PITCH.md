@@ -6,7 +6,7 @@ HIP4 Tools and hip4markets sell HIP-4 to traders; HIP-4 Desk sells liquidity to 
 
 ## TR — short pitch
 
-**Problem.** HIP-4 venues deploy on HyperCore, but outcome markets pay no maker rebate. Live reads: liquidity clusters on incentivized `out`; `txyz` / `skew` median spreads ~0.55–0.89 — barely tradable. Deployers stake capital and still get empty fee flow.
+**Problem.** HIP-4 venues deploy on HyperCore, but outcome markets pay no maker rebate. Read-only mainnet sample (9 Oct 2026, rerun `npm run score:mainnet`): `out` quotes a median spread of 0.0004 off $1,320 of depth, while `txyz` sits at 0.9933 with 80% of sampled books empty and `skew` averages 0.1558. Two of the three live venues are effectively untradable, so deployers stake capital and still get empty fee flow.
 
 **Solution.** Turnkey liquidity desk:
 1. Fair value from HyperCore mark + vol (Black–Scholes binary)
@@ -36,7 +36,7 @@ While existing tools sell HIP-4 to traders, HIP-4 Desk sells liquidity to deploy
 
 ## Judge Q&A
 
-**No maker rebate — how do you earn?** Spread, deployer fee share, builder fees on routed flow.
+**No maker rebate — how do you earn?** Spread capture, the deployer's share of the outcome fee via `deployerFeeScale`, and 0.10% builder fees on routed flow. Outcome markets currently charge no trading fee at all, so the fee lines are forward-looking; spread capture is the part that pays today.
 
 **Why must AI wait for approval?** MM capital risk; advisory only, deployer applies params.
 

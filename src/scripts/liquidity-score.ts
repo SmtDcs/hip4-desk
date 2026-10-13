@@ -113,7 +113,7 @@ async function main() {
 
   if (!isJson) {
     console.log(`\n======================================================================`);
-    console.log(`  📊 HIP-4 DESK — LIQUIDITY BENCHMARK REPORT (READ-ONLY)`);
+    console.log(`  HIP-4 DESK — LIQUIDITY BENCHMARK REPORT (READ-ONLY)`);
     console.log(`  Target Network: ${env.toUpperCase()} (${apiUrl})`);
     console.log(`  Sample per venue: up to ${sampleSize} markets`);
     console.log(`======================================================================\n`);
@@ -221,9 +221,9 @@ async function main() {
     const depthStr = `$${s.medianDepthTop5Usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
     const emptyPctStr = `${s.emptyBooksPercentage}%`;
 
-    let status = '🟢 LIQUID';
-    if (s.emptyBooksPercentage >= 80) status = '🔴 DESERT';
-    else if (s.medianSpread !== null && s.medianSpread > 0.3) status = '🟡 WIDE';
+    let status = 'LIQUID';
+    if (s.emptyBooksPercentage >= 80) status = 'DESERTED';
+    else if (s.medianSpread !== null && s.medianSpread > 0.3) status = 'WIDE';
 
     console.log(
       `| ${s.venue.padEnd(8)} | ${String(s.totalOutcomesInVenue).padStart(6)} | ${String(
@@ -234,7 +234,7 @@ async function main() {
   console.log(`-------------------------------------------------------------------------------------------------------\n`);
 
   // Key Insight Summary
-  console.log(`💡 PRODUCT THESIS VERIFICATION:`);
+  console.log(`PRODUCT THESIS VERIFICATION:`);
   const liquidVenues = venueSummaries.filter(v => v.medianSpread !== null && v.medianSpread < 0.05);
   const illiquidVenues = venueSummaries.filter(v => v.emptyBooksPercentage > 50 || (v.medianSpread !== null && v.medianSpread > 0.20));
 
@@ -242,7 +242,7 @@ async function main() {
   console.log(`   - Deserted/Illiquid venues: [${illiquidVenues.map(v => v.venue).join(', ')}]`);
   console.log(`   - Market Opportunity: Deployers on illiquid venues suffer from wide spreads or empty books.`);
   console.log(`   - HIP-4 Desk Value Prop: Automated quoting bridges this gap instantly, making order books two-sided.`);
-  console.log(`\n✅ Read-only liquidity analysis complete.\n`);
+  console.log(`\nRead-only liquidity analysis complete.\n`);
 }
 
 main().catch((err) => {

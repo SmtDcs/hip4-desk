@@ -95,9 +95,11 @@ export class QuotingEngine {
     // 6. Sizing: ensure min 10 USDH notional (HIP-4 rule)
     const targetNotional = Math.max(10.0, this.params.orderSizeNotional);
 
-    // Contract size = notional / price (rounded to integer as per testnet requirement)
-    const bidSizeContracts = Math.max(1, Math.ceil(targetNotional / Math.max(0.01, bidPx)));
-    const askSizeContracts = Math.max(1, Math.ceil(targetNotional / Math.max(0.01, askPx)));
+    // Contract size = notional / price. Divide by the actual clamped price: a
+    // price floor here would under-size the order and HIP-4 rejects anything
+    // below the $10 minimum ("Order must have minimum value of $10").
+    const bidSizeContracts = Math.max(1, Math.ceil(targetNotional / Math.max(0.001, bidPx)));
+    const askSizeContracts = Math.max(1, Math.ceil(targetNotional / Math.max(0.001, askPx)));
 
     return {
       outcomeId: market.outcomeId,
